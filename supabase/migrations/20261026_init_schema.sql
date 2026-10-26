@@ -104,6 +104,21 @@ CREATE TABLE product_variants (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- 4.1. TABELA DE FOTOS E GALERIA DO PRODUTO (SUPABASE STORAGE)
+CREATE TABLE product_images (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    url TEXT NOT NULL,
+    storage_path TEXT NOT NULL,
+    is_primary BOOLEAN NOT NULL DEFAULT false,
+    sort_order INT NOT NULL DEFAULT 0,
+    alt_text TEXT,
+    width INT,
+    height INT,
+    file_size_bytes INT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 -- 5. GRUPOS DE ADICIONAIS / OPÇÕES (Ex: Ponto da Carne, Adicionais do X-Espeto)
 CREATE TABLE option_groups (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -225,6 +240,7 @@ FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 ALTER TABLE categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE product_variants ENABLE ROW LEVEL SECURITY;
+ALTER TABLE product_images ENABLE ROW LEVEL SECURITY;
 ALTER TABLE option_groups ENABLE ROW LEVEL SECURITY;
 ALTER TABLE option_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE product_option_groups ENABLE ROW LEVEL SECURITY;
@@ -244,6 +260,17 @@ USING (
     status = 'published' AND 
     product_type = 'commercial' AND 
     base_price_cents IS NOT NULL
+);
+
+CREATE POLICY "Cardápio público lê fotos de produtos publicados"
+ON product_images FOR SELECT
+USING (
+    EXISTS (
+        SELECT 1 FROM products
+        WHERE products.id = product_images.product_id
+        AND products.status = 'published'
+        AND products.product_type = 'commercial'
+    )
 );
 
 CREATE POLICY "Cardápio público lê variações ativas"

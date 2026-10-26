@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
@@ -19,6 +20,12 @@ import {
   Save,
   Clock,
   Sparkles,
+  Camera,
+  Image as ImageIcon,
+  Upload,
+  Trash2,
+  Star,
+  X,
 } from 'lucide-react'
 import { INITIAL_PRODUCTS, InitialProduct } from '@/data/initialCatalog'
 import { formatCentsToBRL } from '@/lib/money'
@@ -29,9 +36,15 @@ export default function AdminDashboardPage() {
   const [products, setProducts] = useState<InitialProduct[]>(INITIAL_PRODUCTS)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCat, setSelectedCat] = useState('Todas')
+  const [photoFilter, setPhotoFilter] = useState<'all' | 'with_photo' | 'without_photo'>('all')
   const [editingCode, setEditingCode] = useState<string | null>(null)
   const [editPriceInput, setEditPriceInput] = useState<string>('')
   
+  // Modal de Fotos
+  const [photoModalProduct, setPhotoModalProduct] = useState<InitialProduct | null>(null)
+  const [productPhotos, setProductPhotos] = useState<Record<string, { url: string; isPrimary: boolean }[]>>({})
+  const [photoUploadFeedback, setPhotoUploadFeedback] = useState<string | null>(null)
+
   // Controle da Carne da Quinta
   const [currentThursdayMeat, setCurrentThursdayMeat] = useState('Fraldinha Extra Grill com bacon Pamplona')
   const [meatFeedback, setMeatFeedback] = useState(false)
@@ -53,7 +66,14 @@ export default function AdminDashboardPage() {
     const matchSearch =
       p.produto.toLowerCase().includes(searchTerm.toLowerCase()) ||
       p.codigo.toLowerCase().includes(searchTerm.toLowerCase())
-    return matchCat && matchSearch
+    
+    const photos = productPhotos[p.codigo] || []
+    const matchPhoto =
+      photoFilter === 'all' ||
+      (photoFilter === 'with_photo' && photos.length > 0) ||
+      (photoFilter === 'without_photo' && photos.length === 0)
+
+    return matchCat && matchSearch && matchPhoto
   })
 
   // Alternar disponibilidade rápida
@@ -61,7 +81,6 @@ export default function AdminDashboardPage() {
     setProducts((prev) =>
       prev.map((p) => {
         if (p.codigo === code) {
-          // Inverte se estava disponível ou esgotado
           const isCurrentlyActive = !p.observacoes?.includes('ESGOTADO')
           const updatedObs = isCurrentlyActive
             ? `${p.observacoes || ''} [ESGOTADO HOJE]`.trim()
@@ -85,6 +104,51 @@ export default function AdminDashboardPage() {
     }
   }
 
+  // Upload local simulado de fotos
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>, code: string) => {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+
+    const newPhotos = Array.from(files).map((file, idx) => ({
+      url: URL.createObjectURL(file),
+      isPrimary: (productPhotos[code]?.length || 0) + idx === 0, // primeira é primária
+    }))
+
+    setProductPhotos((prev) => ({
+      ...prev,
+      [code]: [...(prev[code] || []), ...newPhotos],
+    }))
+
+    setPhotoUploadFeedback('Foto carregada com sucesso e otimizada!')
+    setTimeout(() => setPhotoUploadFeedback(null), 3000)
+  }
+
+  // Marcar como foto principal
+  const handleSetPrimaryPhoto = (code: string, photoIndex: number) => {
+    setProductPhotos((prev) => {
+      const list = prev[code] || []
+      return {
+        ...prev,
+        [code]: list.map((item, idx) => ({
+          ...item,
+          isPrimary: idx === photoIndex,
+        })),
+      }
+    })
+  }
+
+  // Excluir foto
+  const handleDeletePhoto = (code: string, photoIndex: number) => {
+    setProductPhotos((prev) => {
+      const list = prev[code] || []
+      const updated = list.filter((_, idx) => idx !== photoIndex)
+      if (updated.length > 0 && !updated.some((p) => p.isPrimary)) {
+        updated[0].isPrimary = true
+      }
+      return { ...prev, [code]: updated }
+    })
+  }
+
   const handleUpdateThursdayMeat = (meatName: string) => {
     setCurrentThursdayMeat(meatName)
     setMeatFeedback(true)
@@ -98,20 +162,26 @@ export default function AdminDashboardPage() {
   }
 
   const categories = ['Todas', ...Array.from(new Set(INITIAL_PRODUCTS.map((p) => p.categoria)))]
+  const totalWithoutPhoto = products.filter((p) => (productPhotos[p.codigo] || []).length === 0).length
 
   return (
     <div className="min-h-screen bg-[#f7f5f0] text-stone-900 pb-20">
-      {/* Barra Superior do Administrador */}
+      {/* Barra Superior do Administrador com Logo Oficial */}
       <header className="sticky top-0 z-30 border-b border-stone-200 bg-white/95 backdrop-blur-md px-4 py-3 shadow-xs">
         <div className="mx-auto flex max-w-5xl items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-600 text-white shadow-sm shadow-orange-600/30">
-              <Flame className="h-6 w-6" />
+            <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-xl border border-amber-400 bg-black shadow-xs">
+              <Image
+                src="/images/brand/logo-oficial.jpg"
+                alt="Logotipo Oficial Brasa Caipira"
+                fill
+                className="object-contain p-0.5"
+              />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-bold text-sm text-stone-900">BRASA CAIPIRA</span>
-                <span className="rounded bg-orange-100 px-1.5 py-0.5 text-[10px] font-bold text-orange-700">
+                <span className="font-extrabold text-sm text-stone-900">BRASA CAIPIRA</span>
+                <span className="rounded bg-[#c21e1e] px-1.5 py-0.5 text-[10px] font-bold text-white">
                   Painel Admin
                 </span>
               </div>
@@ -123,9 +193,9 @@ export default function AdminDashboardPage() {
             <Link
               href="/"
               target="_blank"
-              className="inline-flex items-center gap-1.5 rounded-xl border border-stone-200 bg-stone-50 px-3 py-1.5 text-xs font-semibold text-stone-700 hover:border-orange-500 hover:text-orange-600 transition"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-stone-200 bg-stone-50 px-3 py-1.5 text-xs font-bold text-stone-700 hover:border-orange-500 hover:text-orange-700 transition"
             >
-              <Eye className="h-3.5 w-3.5" />
+              <Eye className="h-3.5 w-3.5 text-orange-600" />
               <span className="hidden sm:inline">Ver Cardápio</span>
             </Link>
             <button
@@ -141,14 +211,14 @@ export default function AdminDashboardPage() {
 
       {/* Conteúdo Principal */}
       <main className="mx-auto max-w-5xl px-4 pt-5">
-        {/* Abas de Navegação do Painel */}
+        {/* Abas de Navegação */}
         <div className="flex gap-2 overflow-x-auto border-b border-stone-200 pb-2">
           <button
             onClick={() => setActiveTab('produtos')}
-            className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-semibold transition ${
+            className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition ${
               activeTab === 'produtos'
-                ? 'bg-orange-600 text-white shadow-sm shadow-orange-600/20'
-                : 'bg-white text-stone-600 hover:bg-stone-50'
+                ? 'bg-[#c21e1e] text-white shadow-sm shadow-red-900/20'
+                : 'bg-white text-stone-700 hover:bg-stone-50 border border-stone-200'
             }`}
           >
             <Package className="h-4 w-4" />
@@ -157,10 +227,10 @@ export default function AdminDashboardPage() {
 
           <button
             onClick={() => setActiveTab('grego')}
-            className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-semibold transition ${
+            className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition ${
               activeTab === 'grego'
-                ? 'bg-orange-600 text-white shadow-sm shadow-orange-600/20'
-                : 'bg-white text-stone-600 hover:bg-stone-50'
+                ? 'bg-[#c21e1e] text-white shadow-sm shadow-red-900/20'
+                : 'bg-white text-stone-700 hover:bg-stone-50 border border-stone-200'
             }`}
           >
             <Sparkles className="h-4 w-4 text-amber-500" />
@@ -169,10 +239,10 @@ export default function AdminDashboardPage() {
 
           <button
             onClick={() => setActiveTab('categorias')}
-            className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-semibold transition ${
+            className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition ${
               activeTab === 'categorias'
-                ? 'bg-orange-600 text-white shadow-sm shadow-orange-600/20'
-                : 'bg-white text-stone-600 hover:bg-stone-50'
+                ? 'bg-[#c21e1e] text-white shadow-sm shadow-red-900/20'
+                : 'bg-white text-stone-700 hover:bg-stone-50 border border-stone-200'
             }`}
           >
             <Layers className="h-4 w-4" />
@@ -181,10 +251,10 @@ export default function AdminDashboardPage() {
 
           <button
             onClick={() => setActiveTab('config')}
-            className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-semibold transition ${
+            className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition ${
               activeTab === 'config'
-                ? 'bg-orange-600 text-white shadow-sm shadow-orange-600/20'
-                : 'bg-white text-stone-600 hover:bg-stone-50'
+                ? 'bg-[#c21e1e] text-white shadow-sm shadow-red-900/20'
+                : 'bg-white text-stone-700 hover:bg-stone-50 border border-stone-200'
             }`}
           >
             <Settings className="h-4 w-4" />
@@ -193,10 +263,55 @@ export default function AdminDashboardPage() {
         </div>
 
         {/* ============================================================ */}
-        {/* ABA 1: PRODUTOS */}
+        {/* ABA 1: PRODUTOS & GESTÃO DE FOTOS */}
         {/* ============================================================ */}
         {activeTab === 'produtos' && (
           <div className="mt-5 space-y-4">
+            {/* Banner de Status das Fotos */}
+            <div className="rounded-2xl border border-amber-300 bg-amber-50/80 p-4 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500 text-white shadow-xs">
+                  <Camera className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-xs font-bold text-amber-950">
+                    Controle de Fotos do Cardápio
+                  </h3>
+                  <p className="text-[11px] text-amber-800 mt-0.5">
+                    <strong>{totalWithoutPhoto}</strong> de {products.length} itens ainda aguardam fotos oficiais. No cardápio público, eles exibem o selo seguro <em>&quot;Foto em breve&quot;</em>.
+                  </p>
+                </div>
+              </div>
+
+              {/* Filtro Rápido de Fotos */}
+              <div className="flex items-center gap-1.5 bg-white p-1 rounded-xl border border-amber-200 self-start sm:self-center">
+                <button
+                  onClick={() => setPhotoFilter('all')}
+                  className={`rounded-lg px-2.5 py-1 text-[11px] font-bold ${
+                    photoFilter === 'all' ? 'bg-amber-600 text-white' : 'text-stone-600 hover:bg-stone-100'
+                  }`}
+                >
+                  Todos
+                </button>
+                <button
+                  onClick={() => setPhotoFilter('without_photo')}
+                  className={`rounded-lg px-2.5 py-1 text-[11px] font-bold ${
+                    photoFilter === 'without_photo' ? 'bg-amber-600 text-white' : 'text-stone-600 hover:bg-stone-100'
+                  }`}
+                >
+                  Sem foto ({totalWithoutPhoto})
+                </button>
+                <button
+                  onClick={() => setPhotoFilter('with_photo')}
+                  className={`rounded-lg px-2.5 py-1 text-[11px] font-bold ${
+                    photoFilter === 'with_photo' ? 'bg-amber-600 text-white' : 'text-stone-600 hover:bg-stone-100'
+                  }`}
+                >
+                  Com foto ({products.length - totalWithoutPhoto})
+                </button>
+              </div>
+            </div>
+
             {/* Filtros e Busca */}
             <div className="flex flex-col sm:flex-row gap-2.5">
               <div className="relative flex-1">
@@ -221,53 +336,87 @@ export default function AdminDashboardPage() {
               </select>
             </div>
 
-            <p className="text-xs text-stone-500">
-              Mostrando <strong>{filtered.length}</strong> de {products.length} itens cadastrados da planilha original.
-            </p>
-
             {/* Lista dos Produtos */}
             <div className="space-y-2.5">
               {filtered.map((p) => {
                 const isOutOfStock = p.observacoes?.includes('ESGOTADO')
+                const photos = productPhotos[p.codigo] || []
+                const primaryPhoto = photos.find((x) => x.isPrimary) || photos[0]
+
                 return (
                   <div
                     key={p.codigo}
                     className="flex flex-col sm:flex-row sm:items-center justify-between rounded-2xl border border-stone-200 bg-white p-4 shadow-xs gap-3"
                   >
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="rounded bg-stone-100 px-1.5 py-0.5 text-[10px] font-mono font-bold text-stone-600">
-                          {p.codigo}
-                        </span>
-                        <h4 className="text-xs font-bold text-stone-900">{p.produto}</h4>
-                        <span className="text-[10px] text-stone-400">({p.categoria})</span>
-                      </div>
-
-                      {p.ingredientes && (
-                        <p className="mt-1 text-[11px] text-stone-500">
-                          {p.ingredientes}
-                        </p>
-                      )}
-
-                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                        {p.dia_periodo && (
-                          <span className="inline-flex items-center gap-1 rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-800 border border-amber-200">
-                            <Calendar className="h-3 w-3 text-amber-600" />
-                            {p.dia_periodo}
-                          </span>
-                        )}
-                        <span className="rounded bg-stone-100 px-1.5 py-0.5 text-[10px] text-stone-600">
-                          {p.unidade}
-                        </span>
-                        {isOutOfStock ? (
-                          <span className="rounded bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-700 border border-rose-200">
-                            ● Esgotado hoje
-                          </span>
+                    <div className="flex items-start gap-3 flex-1">
+                      {/* Miniatura ou Placeholder */}
+                      <button
+                        onClick={() => setPhotoModalProduct(p)}
+                        className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-stone-200 bg-stone-50 flex items-center justify-center hover:border-amber-400 group"
+                        title="Gerenciar fotos deste produto"
+                      >
+                        {primaryPhoto ? (
+                          <Image
+                            src={primaryPhoto.url}
+                            alt={p.produto}
+                            fill
+                            className="object-cover"
+                          />
                         ) : (
-                          <span className="rounded bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 border border-emerald-200">
-                            ● Disponível
+                          <div className="flex flex-col items-center justify-center text-stone-400 group-hover:text-amber-600">
+                            <Camera className="h-5 w-5" />
+                            <span className="text-[8px] font-bold mt-0.5">Adicionar</span>
+                          </div>
+                        )}
+                        {photos.length > 0 && (
+                          <span className="absolute bottom-0 right-0 bg-stone-900/80 text-white text-[9px] px-1 font-bold rounded-tl">
+                            {photos.length}
                           </span>
                         )}
+                      </button>
+
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="rounded bg-stone-100 px-1.5 py-0.5 text-[10px] font-mono font-bold text-stone-600">
+                            {p.codigo}
+                          </span>
+                          <h4 className="text-xs font-bold text-stone-900">{p.produto}</h4>
+                          <span className="text-[10px] text-stone-400">({p.categoria})</span>
+                        </div>
+
+                        {p.ingredientes && (
+                          <p className="mt-1 text-[11px] text-stone-500">
+                            {p.ingredientes}
+                          </p>
+                        )}
+
+                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                          {p.dia_periodo && (
+                            <span className="inline-flex items-center gap-1 rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-900 border border-amber-200">
+                              <Calendar className="h-3 w-3 text-amber-700" />
+                              {p.dia_periodo}
+                            </span>
+                          )}
+                          <span className="rounded bg-stone-100 px-1.5 py-0.5 text-[10px] text-stone-600 font-medium">
+                            {p.unidade}
+                          </span>
+                          {isOutOfStock ? (
+                            <span className="rounded bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-700 border border-rose-200">
+                              ● Esgotado hoje
+                            </span>
+                          ) : (
+                            <span className="rounded bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 border border-emerald-200">
+                              ● Disponível
+                            </span>
+                          )}
+                          <button
+                            onClick={() => setPhotoModalProduct(p)}
+                            className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 hover:text-orange-700 ml-1"
+                          >
+                            <Camera className="h-3 w-3" />
+                            <span>{photos.length > 0 ? `${photos.length} foto(s)` : '+ Inserir Foto'}</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
 
@@ -318,7 +467,7 @@ export default function AdminDashboardPage() {
 
                           <button
                             onClick={() => toggleAvailability(p.codigo)}
-                            className={`rounded-xl px-2.5 py-1.5 text-[11px] font-semibold transition ${
+                            className={`rounded-xl px-2.5 py-1.5 text-[11px] font-bold transition ${
                               isOutOfStock
                                 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
                                 : 'bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100'
@@ -332,6 +481,134 @@ export default function AdminDashboardPage() {
                   </div>
                 )
               })}
+            </div>
+          </div>
+        )}
+
+        {/* ============================================================ */}
+        {/* MODAL DE GESTÃO DE FOTOS & CÂMERA DO CELULAR */}
+        {/* ============================================================ */}
+        {photoModalProduct && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-xs">
+            <div className="relative max-w-lg w-full rounded-2xl bg-white p-5 shadow-2xl max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between border-b border-stone-200 pb-3">
+                <div>
+                  <span className="text-[10px] font-mono font-bold text-stone-500">
+                    {photoModalProduct.codigo}
+                  </span>
+                  <h3 className="font-extrabold text-sm text-stone-900">
+                    Galeria de Fotos: {photoModalProduct.produto}
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setPhotoModalProduct(null)}
+                  className="rounded-full p-1.5 text-stone-400 hover:bg-stone-100 hover:text-stone-700"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              {photoUploadFeedback && (
+                <div className="mt-3 rounded-xl bg-emerald-50 p-2.5 text-xs text-emerald-800 border border-emerald-200 flex items-center gap-1.5">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                  <span>{photoUploadFeedback}</span>
+                </div>
+              )}
+
+              {/* Ações de Upload / Câmera */}
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <label className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-amber-300 bg-amber-50/50 p-3 text-center cursor-pointer hover:bg-amber-100/50 transition">
+                  <Upload className="h-5 w-5 text-amber-700 mb-1" />
+                  <span className="text-xs font-bold text-stone-800">Escolher Foto</span>
+                  <span className="text-[10px] text-stone-500">Galeria / Arquivo</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => handlePhotoUpload(e, photoModalProduct.codigo)}
+                  />
+                </label>
+
+                <label className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-orange-300 bg-orange-50/50 p-3 text-center cursor-pointer hover:bg-orange-100/50 transition">
+                  <Camera className="h-5 w-5 text-orange-700 mb-1" />
+                  <span className="text-xs font-bold text-stone-800">Usar Câmera</span>
+                  <span className="text-[10px] text-stone-500">Fotografar agora</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="hidden"
+                    onChange={(e) => handlePhotoUpload(e, photoModalProduct.codigo)}
+                  />
+                </label>
+              </div>
+
+              {/* Lista de Fotos Existentes */}
+              <div className="mt-5">
+                <h4 className="text-xs font-bold text-stone-700 mb-2">
+                  Fotos Cadastradas ({(productPhotos[photoModalProduct.codigo] || []).length}):
+                </h4>
+
+                {(productPhotos[photoModalProduct.codigo] || []).length === 0 ? (
+                  <div className="rounded-xl border border-stone-200 bg-stone-50 p-4 text-center text-xs text-stone-500">
+                    Nenhuma foto cadastrada ainda para este item. O cardápio exibirá a arte oficial <em>&quot;Foto oficial em breve&quot;</em>.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2.5">
+                    {(productPhotos[photoModalProduct.codigo] || []).map((photo, index) => (
+                      <div
+                        key={index}
+                        className={`relative rounded-xl overflow-hidden border-2 bg-stone-100 p-1 ${
+                          photo.isPrimary ? 'border-amber-500 ring-2 ring-amber-300' : 'border-stone-200'
+                        }`}
+                      >
+                        <div className="relative h-28 w-full rounded-lg overflow-hidden">
+                          <Image
+                            src={photo.url}
+                            alt={`Foto ${index + 1}`}
+                            fill
+                            className="object-cover"
+                          />
+                        </div>
+
+                        <div className="mt-1.5 flex items-center justify-between px-1">
+                          <button
+                            type="button"
+                            onClick={() => handleSetPrimaryPhoto(photoModalProduct.codigo, index)}
+                            className={`inline-flex items-center gap-1 text-[10px] font-bold ${
+                              photo.isPrimary ? 'text-amber-700' : 'text-stone-400 hover:text-stone-700'
+                            }`}
+                          >
+                            <Star className={`h-3 w-3 ${photo.isPrimary ? 'fill-amber-500 text-amber-500' : ''}`} />
+                            <span>{photo.isPrimary ? 'Foto Principal' : 'Tornar Capa'}</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleDeletePhoto(photoModalProduct.codigo, index)}
+                            className="text-stone-400 hover:text-rose-600 p-1"
+                            title="Excluir foto"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Botão de Fechar */}
+              <div className="mt-5 border-t border-stone-100 pt-3 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setPhotoModalProduct(null)}
+                  className="rounded-xl bg-stone-900 px-4 py-2 text-xs font-bold text-white hover:bg-stone-800"
+                >
+                  Concluir
+                </button>
+              </div>
             </div>
           </div>
         )}

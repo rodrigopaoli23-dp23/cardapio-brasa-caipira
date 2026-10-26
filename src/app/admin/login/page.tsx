@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { Flame, Lock, Mail, ArrowLeft, ShieldCheck, KeyRound, CheckCircle2 } from 'lucide-react'
 
@@ -49,8 +50,14 @@ export default function AdminLoginPage() {
       <div className="w-full max-w-sm rounded-2xl border border-stone-200 bg-white p-6 shadow-sm">
         {/* Cabeçalho */}
         <div className="text-center">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-orange-600 text-white shadow-md shadow-orange-600/20">
-            <Flame className="h-8 w-8" />
+          <div className="mx-auto relative h-16 w-16 overflow-hidden rounded-2xl border-2 border-amber-400 bg-black shadow-md shadow-amber-900/10">
+            <Image
+              src="/images/brand/logo-oficial.jpg"
+              alt="Logotipo Oficial Brasa Caipira"
+              fill
+              priority
+              className="object-contain p-0.5"
+            />
           </div>
           <h1 className="mt-3 text-lg font-bold tracking-tight text-stone-900">
             Painel Administrativo

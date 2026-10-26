@@ -51,6 +51,20 @@ export interface ScheduleRule {
   special_notes?: string | null
 }
 
+export interface ProductImage {
+  id: string
+  product_id: string
+  url: string
+  storage_path: string // Caminho relativo no bucket do Supabase
+  is_primary: boolean  // Foto de capa/principal
+  sort_order: number   // Ordem na galeria
+  alt_text?: string | null
+  width?: number | null
+  height?: number | null
+  file_size_bytes?: number | null
+  created_at: string
+}
+
 export interface Product {
   id: string
   category_id: string
@@ -61,7 +75,8 @@ export interface Product {
   product_type: ProductType
   base_price_cents: number | null // Em centavos. Null = pendente de precificação
   unit: string // "espeto", "lanche", "porção", "combo", "unidade", "lata", "garrafa"
-  image_url?: string | null
+  image_url?: string | null       // URL da foto principal (legado/atalho)
+  images?: ProductImage[]         // Galeria completa de fotos do produto
   
   // Três dimensões de controle independentes
   status: ProductStatus
