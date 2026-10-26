@@ -119,6 +119,30 @@ CREATE TABLE product_images (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- REGRA ESTRITA: Garantia de NO MÁXIMO 1 foto principal por produto no banco de dados
+CREATE UNIQUE INDEX idx_product_images_single_primary 
+ON product_images (product_id) 
+WHERE is_primary = true;
+
+-- Trigger atômico que desmarca outras fotos principais ao definir uma nova
+CREATE OR REPLACE FUNCTION ensure_single_primary_image()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.is_primary = true THEN
+        UPDATE product_images
+        SET is_primary = false
+        WHERE product_id = NEW.product_id AND id != NEW.id;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_ensure_single_primary_image
+BEFORE INSERT OR UPDATE ON product_images
+FOR EACH ROW
+WHEN (NEW.is_primary = true)
+EXECUTE FUNCTION ensure_single_primary_image();
+
 -- 5. GRUPOS DE ADICIONAIS / OPÇÕES (Ex: Ponto da Carne, Adicionais do X-Espeto)
 CREATE TABLE option_groups (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -295,5 +319,87 @@ CREATE POLICY "Cliente lê apenas seu pedido recém-criado"
 ON orders FOR SELECT
 USING (true);
 
--- Regras Administrativas (Controle Total para Usuários Autenticados com Role Admin)
--- Em produção, vincula-se auth.jwt() -> role = 'admin'
+-- ==============================================================================
+-- 14. POLÍTICAS DO SUPABASE STORAGE (BUCKET 'product-images')
+-- ==============================================================================
+
+-- Apenas administradores autenticados podem fazer upload de fotos
+CREATE POLICY "Apenas admin pode fazer upload de fotos no bucket product-images"
+ON storage.objects FOR INSERT
+WITH CHECK (
+    bucket_id = 'product-images' AND 
+    (auth.jwt()->>'role' = 'admin' OR auth.role() = 'service_role')
+);
+
+-- Apenas administradores podem atualizar ou substituir fotos
+CREATE POLICY "Apenas admin pode atualizar fotos no bucket product-images"
+ON storage.objects FOR UPDATE
+USING (
+    bucket_id = 'product-images' AND 
+    (auth.jwt()->>'role' = 'admin' OR auth.role() = 'service_role')
+);
+
+-- Apenas administradores podem excluir fotos do bucket
+CREATE POLICY "Apenas admin pode excluir fotos no bucket product-images"
+ON storage.objects FOR DELETE
+USING (
+    bucket_id = 'product-images' AND 
+    (auth.jwt()->>'role' = 'admin' OR auth.role() = 'service_role')
+);
+
+-- Leitura pública para fotos do cardápio
+CREATE POLICY "Leitura pública de fotos no bucket product-images"
+ON storage.objects FOR SELECT
+USING (bucket_id = 'product-images');
+
+-- ==============================================================================
+-- 15. POLÍTICAS DE ACESSO TOTAL PARA ADMINISTRADOR (PAINEL ADMIN)
+-- ==============================================================================
+
+CREATE POLICY "Admin gerencia todas as categorias"
+ON categories FOR ALL
+USING (auth.jwt()->>'role' = 'admin' OR auth.role() = 'service_role')
+WITH CHECK (auth.jwt()->>'role' = 'admin' OR auth.role() = 'service_role');
+
+CREATE POLICY "Admin gerencia todos os produtos"
+ON products FOR ALL
+USING (auth.jwt()->>'role' = 'admin' OR auth.role() = 'service_role')
+WITH CHECK (auth.jwt()->>'role' = 'admin' OR auth.role() = 'service_role');
+
+CREATE POLICY "Admin gerencia fotos de produtos na tabela product_images"
+ON product_images FOR ALL
+USING (auth.jwt()->>'role' = 'admin' OR auth.role() = 'service_role')
+WITH CHECK (auth.jwt()->>'role' = 'admin' OR auth.role() = 'service_role');
+
+CREATE POLICY "Admin gerencia variações de produtos"
+ON product_variants FOR ALL
+USING (auth.jwt()->>'role' = 'admin' OR auth.role() = 'service_role')
+WITH CHECK (auth.jwt()->>'role' = 'admin' OR auth.role() = 'service_role');
+
+CREATE POLICY "Admin gerencia configurações da loja"
+ON store_settings FOR ALL
+USING (auth.jwt()->>'role' = 'admin' OR auth.role() = 'service_role')
+WITH CHECK (auth.jwt()->>'role' = 'admin' OR auth.role() = 'service_role');
+
+CREATE POLICY "Admin gerencia pedidos"
+ON orders FOR ALL
+USING (auth.jwt()->>'role' = 'admin' OR auth.role() = 'service_role')
+WITH CHECK (auth.jwt()->>'role' = 'admin' OR auth.role() = 'service_role');
+
+-- ==============================================================================
+-- 16. INICIALIZAÇÃO SEGURA DO BUCKET NO STORAGE (LIMITE 5MB, JPG/PNG/WEBP/AVIF)
+-- ==============================================================================
+
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+    'product-images',
+    'product-images',
+    true,
+    5242880, -- 5 MB máximo por imagem
+    ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/avif']
+)
+ON CONFLICT (id) DO UPDATE SET
+    public = true,
+    file_size_limit = 5242880,
+    allowed_mime_types = ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/avif'];
+

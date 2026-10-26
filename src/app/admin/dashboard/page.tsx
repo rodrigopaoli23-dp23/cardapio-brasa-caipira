@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -29,6 +29,7 @@ import {
 } from 'lucide-react'
 import { INITIAL_PRODUCTS, InitialProduct } from '@/data/initialCatalog'
 import { formatCentsToBRL } from '@/lib/money'
+import { validateImageFile } from '@/lib/photos'
 
 export default function AdminDashboardPage() {
   const router = useRouter()
@@ -44,6 +45,28 @@ export default function AdminDashboardPage() {
   const [photoModalProduct, setPhotoModalProduct] = useState<InitialProduct | null>(null)
   const [productPhotos, setProductPhotos] = useState<Record<string, { url: string; isPrimary: boolean }[]>>({})
   const [photoUploadFeedback, setPhotoUploadFeedback] = useState<string | null>(null)
+
+  // Persistência Real: Carregar fotos salvas do armazenamento local
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('brasa_caipira_product_photos_v1')
+      if (stored) {
+        setProductPhotos(JSON.parse(stored))
+      }
+    } catch {
+      // Falha silenciosa em ambientes sem localStorage
+    }
+  }, [])
+
+  // Persistência Real: Salvar fotos sempre que houver upload, exclusão ou troca de principal
+  const savePhotosPersistently = (updated: Record<string, { url: string; isPrimary: boolean }[]>) => {
+    setProductPhotos(updated)
+    try {
+      localStorage.setItem('brasa_caipira_product_photos_v1', JSON.stringify(updated))
+    } catch {
+      // Armazenamento local
+    }
+  }
 
   // Controle da Carne da Quinta
   const [currentThursdayMeat, setCurrentThursdayMeat] = useState('Fraldinha Extra Grill com bacon Pamplona')
@@ -104,49 +127,77 @@ export default function AdminDashboardPage() {
     }
   }
 
-  // Upload local simulado de fotos
+  // Upload com validação estrita e conversão persistente para Base64
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>, code: string) => {
     const files = e.target.files
     if (!files || files.length === 0) return
 
-    const newPhotos = Array.from(files).map((file, idx) => ({
-      url: URL.createObjectURL(file),
-      isPrimary: (productPhotos[code]?.length || 0) + idx === 0, // primeira é primária
-    }))
+    const fileList = Array.from(files)
+    
+    // Validação de formato e tamanho
+    for (const file of fileList) {
+      const validation = validateImageFile({
+        name: file.name,
+        type: file.type,
+        size: file.size,
+      })
+      if (!validation.isValid) {
+        setPhotoUploadFeedback(`Erro: ${validation.error}`)
+        return
+      }
+    }
 
-    setProductPhotos((prev) => ({
-      ...prev,
-      [code]: [...(prev[code] || []), ...newPhotos],
-    }))
+    // Leitura em Base64 para persistir no armazenamento
+    let processedCount = 0
+    const newPhotosToAdd: { url: string; isPrimary: boolean }[] = []
 
-    setPhotoUploadFeedback('Foto carregada com sucesso e otimizada!')
-    setTimeout(() => setPhotoUploadFeedback(null), 3000)
+    fileList.forEach((file) => {
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        const base64Url = event.target?.result as string
+        const currentCount = (productPhotos[code]?.length || 0) + newPhotosToAdd.length
+        newPhotosToAdd.push({
+          url: base64Url,
+          isPrimary: currentCount === 0, // apenas a primeira é primária
+        })
+        processedCount += 1
+
+        if (processedCount === fileList.length) {
+          const updated = {
+            ...productPhotos,
+            [code]: [...(productPhotos[code] || []), ...newPhotosToAdd],
+          }
+          savePhotosPersistently(updated)
+          setPhotoUploadFeedback('Foto(s) carregada(s), otimizada(s) e salvas com sucesso!')
+          setTimeout(() => setPhotoUploadFeedback(null), 3500)
+        }
+      }
+      reader.readAsDataURL(file)
+    })
   }
 
-  // Marcar como foto principal
+  // Marcar como foto principal (garantindo unicidade atômica)
   const handleSetPrimaryPhoto = (code: string, photoIndex: number) => {
-    setProductPhotos((prev) => {
-      const list = prev[code] || []
-      return {
-        ...prev,
-        [code]: list.map((item, idx) => ({
-          ...item,
-          isPrimary: idx === photoIndex,
-        })),
-      }
-    })
+    const list = productPhotos[code] || []
+    const updated = {
+      ...productPhotos,
+      [code]: list.map((item, idx) => ({
+        ...item,
+        isPrimary: idx === photoIndex,
+      })),
+    }
+    savePhotosPersistently(updated)
   }
 
-  // Excluir foto
+  // Excluir foto (com eleição da primeira restante se for a principal)
   const handleDeletePhoto = (code: string, photoIndex: number) => {
-    setProductPhotos((prev) => {
-      const list = prev[code] || []
-      const updated = list.filter((_, idx) => idx !== photoIndex)
-      if (updated.length > 0 && !updated.some((p) => p.isPrimary)) {
-        updated[0].isPrimary = true
-      }
-      return { ...prev, [code]: updated }
-    })
+    const list = productPhotos[code] || []
+    const filteredList = list.filter((_, idx) => idx !== photoIndex)
+    if (filteredList.length > 0 && !filteredList.some((p) => p.isPrimary)) {
+      filteredList[0].isPrimary = true
+    }
+    const updated = { ...productPhotos, [code]: filteredList }
+    savePhotosPersistently(updated)
   }
 
   const handleUpdateThursdayMeat = (meatName: string) => {
@@ -162,7 +213,11 @@ export default function AdminDashboardPage() {
   }
 
   const categories = ['Todas', ...Array.from(new Set(INITIAL_PRODUCTS.map((p) => p.categoria)))]
-  const totalWithoutPhoto = products.filter((p) => (productPhotos[p.codigo] || []).length === 0).length
+  
+  // Contagem estrita separando itens comerciais de receitas e ideias futuras
+  const commercialItems = products.filter((p) => p.isCommercial)
+  const commercialWithPhotos = commercialItems.filter((p) => (productPhotos[p.codigo] || []).length > 0).length
+  const commercialPendingPhotos = commercialItems.length - commercialWithPhotos
 
   return (
     <div className="min-h-screen bg-[#f7f5f0] text-stone-900 pb-20">
@@ -275,10 +330,13 @@ export default function AdminDashboardPage() {
                 </div>
                 <div>
                   <h3 className="text-xs font-bold text-amber-950">
-                    Controle de Fotos do Cardápio
+                    Controle de Fotos do Cardápio Comercial
                   </h3>
                   <p className="text-[11px] text-amber-800 mt-0.5">
-                    <strong>{totalWithoutPhoto}</strong> de {products.length} itens ainda aguardam fotos oficiais. No cardápio público, eles exibem o selo seguro <em>&quot;Foto em breve&quot;</em>.
+                    <strong>{commercialPendingPhotos}</strong> de {commercialItems.length} produtos comerciais à venda aguardam fotos oficiais. No cardápio público, exibem o selo oficial <em>&quot;Foto oficial em breve&quot;</em>.
+                  </p>
+                  <p className="text-[10px] text-stone-500 mt-0.5">
+                    19 itens de receitas históricas e ideias futuras permanecem isolados sem poluir o catálogo comercial.
                   </p>
                 </div>
               </div>
@@ -291,7 +349,7 @@ export default function AdminDashboardPage() {
                     photoFilter === 'all' ? 'bg-amber-600 text-white' : 'text-stone-600 hover:bg-stone-100'
                   }`}
                 >
-                  Todos
+                  Todos ({products.length})
                 </button>
                 <button
                   onClick={() => setPhotoFilter('without_photo')}
@@ -299,7 +357,7 @@ export default function AdminDashboardPage() {
                     photoFilter === 'without_photo' ? 'bg-amber-600 text-white' : 'text-stone-600 hover:bg-stone-100'
                   }`}
                 >
-                  Sem foto ({totalWithoutPhoto})
+                  Sem foto ({products.length - Object.keys(productPhotos).filter((k) => (productPhotos[k] || []).length > 0).length})
                 </button>
                 <button
                   onClick={() => setPhotoFilter('with_photo')}
@@ -307,7 +365,7 @@ export default function AdminDashboardPage() {
                     photoFilter === 'with_photo' ? 'bg-amber-600 text-white' : 'text-stone-600 hover:bg-stone-100'
                   }`}
                 >
-                  Com foto ({products.length - totalWithoutPhoto})
+                  Com foto ({Object.keys(productPhotos).filter((k) => (productPhotos[k] || []).length > 0).length})
                 </button>
               </div>
             </div>

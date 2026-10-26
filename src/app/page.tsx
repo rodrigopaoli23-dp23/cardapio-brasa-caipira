@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import {
@@ -17,19 +17,52 @@ import {
   MessageCircle,
   Camera,
   Maximize2,
+  Sparkles,
+  ChevronRight,
 } from 'lucide-react'
 import { INITIAL_PRODUCTS, InitialProduct } from '@/data/initialCatalog'
 import { formatCentsToBRL } from '@/lib/money'
+
+function InstagramIcon({ className = 'h-4 w-4' }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
+      <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+      <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
+    </svg>
+  )
+}
 
 export default function HomePage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('Todas')
   const [searchQuery, setSearchQuery] = useState<string>('')
   const [cart, setCart] = useState<Record<string, number>>({})
+  const [productPhotos, setProductPhotos] = useState<Record<string, { url: string; isPrimary: boolean }[]>>({})
   const [selectedPhotoZoom, setSelectedPhotoZoom] = useState<{
     url: string
     title: string
     desc?: string | null
   } | null>(null)
+
+  // Carregar fotos persistidas do armazenamento local (sincronizado com o painel admin)
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('brasa_caipira_product_photos_v1')
+      if (stored) {
+        setProductPhotos(JSON.parse(stored))
+      }
+    } catch {
+      // Falha silenciosa em ambientes sem localStorage
+    }
+  }, [])
 
   // Categorias comerciais
   const categories = useMemo(() => {
@@ -80,9 +113,9 @@ export default function HomePage() {
   }, [cart])
 
   return (
-    <main className="mx-auto min-h-screen max-w-md bg-[#fdfbf7] pb-32 shadow-sm md:max-w-2xl">
-      {/* Top Banner de Identidade Visual */}
-      <div className="bg-[#991b1b] px-4 py-2 text-center text-xs font-bold text-amber-200 tracking-wide border-b border-amber-500/20">
+    <main className="mx-auto min-h-screen max-w-md bg-[#fdfbf7] pb-36 shadow-sm md:max-w-2xl">
+      {/* Top Banner de Identidade Visual Inspirado no Folheto Oficial */}
+      <div className="bg-[#991b1b] px-4 py-2 text-center text-xs font-extrabold text-amber-200 tracking-wide border-b border-amber-500/30">
         🔥 O VERDADEIRO SABOR DA BRASA QUE REÚNE A FAMÍLIA!
       </div>
 
@@ -144,6 +177,29 @@ export default function HomePage() {
           </div>
         </div>
 
+        {/* Links Oficiais em Evidência (WhatsApp & Instagram) */}
+        <div className="mt-3 flex items-center justify-between gap-2 border-t border-stone-100 pt-3 text-xs">
+          <a
+            href="https://wa.me/5519998107666"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-emerald-50 py-2 px-3 font-bold text-emerald-800 border border-emerald-200 hover:bg-emerald-100 transition"
+          >
+            <MessageCircle className="h-4 w-4 text-emerald-600" />
+            <span>(19) 99810-7666</span>
+          </a>
+
+          <a
+            href="https://instagram.com/brasa.caipira"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-rose-50 py-2 px-3 font-bold text-rose-800 border border-rose-200 hover:bg-rose-100 transition"
+          >
+            <InstagramIcon className="h-4 w-4 text-rose-600" />
+            <span>@brasa.caipira</span>
+          </a>
+        </div>
+
         {/* Barra de Busca Dinâmica */}
         <div className="relative mt-4">
           <Search className="absolute left-3.5 top-3 h-4 w-4 text-stone-400" />
@@ -165,8 +221,70 @@ export default function HomePage() {
         </div>
       </header>
 
-      {/* Navegação por Categorias */}
-      <nav className="sticky top-0 z-20 border-b border-stone-200 bg-[#fdfbf7]/95 px-4 py-3 backdrop-blur-md">
+      {/* BANNER DE NOVIDADES & DESTAQUES DA CASA COM ARTE OFICIAL FORNECIDA */}
+      <section className="px-4 pt-4">
+        <div className="overflow-hidden rounded-2xl border-2 border-amber-400/80 bg-gradient-to-br from-[#991b1b] via-[#b91c1c] to-[#7f1d1d] text-white shadow-md">
+          {/* Imagem Oficial dos Espetinhos Brasa Caipira */}
+          <div
+            onClick={() =>
+              setSelectedPhotoZoom({
+                url: '/images/brand/banner-espetinhos.png',
+                title: 'A Brasa Tem Escolha — Espetinhos Brasa Caipira',
+                desc: 'Carne bovina, frango grelhado, queijo coalho e medalhão com farofa e molhos especiais!',
+              })
+            }
+            className="relative h-52 sm:h-64 w-full cursor-pointer group bg-black/30"
+          >
+            <Image
+              src="/images/brand/banner-espetinhos.png"
+              alt="A Brasa Tem Escolha — Espetinhos Brasa Caipira"
+              fill
+              priority
+              className="object-cover group-hover:scale-102 transition duration-300"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent flex items-end p-4">
+              <div className="flex items-center justify-between w-full">
+                <div>
+                  <span className="rounded-md bg-amber-400 px-2 py-0.5 text-[10px] font-black uppercase text-stone-950">
+                    Foto & Cartaz Oficial
+                  </span>
+                  <h2 className="mt-1 text-sm sm:text-base font-black text-white drop-shadow-md">
+                    A BRASA TEM ESCOLHA!
+                  </h2>
+                </div>
+                <span className="bg-black/60 text-white rounded-full p-2 group-hover:scale-110 transition shadow-sm">
+                  <Maximize2 className="h-4 w-4" />
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-4">
+            <div className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-amber-300">
+              <Sparkles className="h-4 w-4 text-amber-300" />
+              <span>Destaques da Semana no Brasa Caipira</span>
+            </div>
+
+            <p className="mt-1 text-xs text-amber-100/90 leading-snug">
+              Espetos tradicionais assados na brasa, acompanhados de farofa artesanal caipira e molhos especiais da casa. Faça seu pedido direto no balcão ou via WhatsApp!
+            </p>
+
+            <div className="mt-3 grid grid-cols-2 gap-2 text-[11px]">
+              <div className="rounded-xl bg-black/30 p-2 border border-white/10">
+                <span className="font-bold text-amber-300 block">Massas Frescas</span>
+                <span className="text-[10px] text-stone-200">Talharim à bolonhesa no pote</span>
+              </div>
+              <div className="rounded-xl bg-black/30 p-2 border border-white/10">
+                <span className="font-bold text-amber-300 block">Churrasco Grego</span>
+                <span className="text-[10px] text-stone-200">Às quintas: fraldinha ou lombo</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Navegação por Categorias com Rolagem Suave */}
+      <nav className="sticky top-0 z-20 border-b border-stone-200 bg-[#fdfbf7]/95 px-4 py-3 backdrop-blur-md mt-2">
         <div className="flex gap-2 overflow-x-auto no-scrollbar scroll-smooth">
           {categories.map((cat) => (
             <button
@@ -187,7 +305,7 @@ export default function HomePage() {
       {/* Listagem de Produtos com Área Proporcional de Foto */}
       <section className="px-4 py-4 space-y-3.5">
         <div className="flex items-center justify-between text-xs text-stone-500 px-1 font-medium">
-          <span>{filteredProducts.length} itens encontrados</span>
+          <span>{filteredProducts.length} itens comerciais encontrados</span>
           {selectedCategory !== 'Todas' && (
             <span className="font-bold text-[#c21e1e]">{selectedCategory}</span>
           )}
@@ -195,26 +313,57 @@ export default function HomePage() {
 
         {filteredProducts.map((p) => {
           const qtyInCart = cart[p.codigo] || 0
-          
+          const photos = productPhotos[p.codigo] || []
+          const primaryPhoto = photos.find((x) => x.isPrimary) || photos[0]
+
           return (
             <article
               key={p.codigo}
               className="rounded-2xl border border-stone-200 bg-white p-3.5 shadow-xs transition hover:border-amber-300 flex flex-col sm:flex-row gap-3.5"
             >
-              {/* Espaço Padronizado da Foto / Placeholder Oficial */}
-              <div className="relative h-44 sm:h-32 sm:w-32 shrink-0 rounded-xl overflow-hidden bg-stone-100 border border-stone-200 flex items-center justify-center">
-                {/* Placeholder Oficial Padronizado "Foto em Breve" sem imagens falsas de terceiros */}
-                <div className="flex flex-col items-center justify-center p-3 text-center w-full h-full bg-gradient-to-br from-amber-50/90 via-stone-50 to-orange-50/60">
-                  <div className="h-10 w-10 rounded-full bg-amber-100 flex items-center justify-center text-amber-800 mb-1 border border-amber-200">
-                    <Camera className="h-5 w-5 text-amber-700" />
+              {/* Espaço Padronizado da Foto / Imagem Real ou Placeholder Oficial */}
+              <div
+                onClick={() => {
+                  if (primaryPhoto) {
+                    setSelectedPhotoZoom({
+                      url: primaryPhoto.url,
+                      title: p.produto,
+                      desc: p.descricao,
+                    })
+                  }
+                }}
+                className={`relative h-44 sm:h-32 sm:w-32 shrink-0 rounded-xl overflow-hidden bg-stone-100 border border-stone-200 flex items-center justify-center ${
+                  primaryPhoto ? 'cursor-pointer group' : ''
+                }`}
+              >
+                {primaryPhoto ? (
+                  <>
+                    <Image
+                      src={primaryPhoto.url}
+                      alt={p.produto}
+                      fill
+                      className="object-cover group-hover:scale-105 transition duration-300"
+                    />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition flex items-center justify-center">
+                      <span className="opacity-0 group-hover:opacity-100 bg-black/60 text-white rounded-full p-1.5 transition">
+                        <Maximize2 className="h-4 w-4" />
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  /* Placeholder Oficial Padronizado "Foto em Breve" sem imagens falsas de concorrentes */
+                  <div className="flex flex-col items-center justify-center p-3 text-center w-full h-full bg-gradient-to-br from-amber-50/90 via-stone-50 to-orange-50/60">
+                    <div className="h-9 w-9 rounded-full bg-amber-100 flex items-center justify-center text-amber-800 mb-1 border border-amber-200">
+                      <Camera className="h-4 w-4 text-amber-700" />
+                    </div>
+                    <span className="text-[11px] font-extrabold text-stone-800 tracking-tight">
+                      BRASA CAIPIRA
+                    </span>
+                    <span className="text-[10px] font-semibold text-amber-800 mt-0.5">
+                      Foto oficial em breve
+                    </span>
                   </div>
-                  <span className="text-[11px] font-extrabold text-stone-800 tracking-tight">
-                    BRASA CAIPIRA
-                  </span>
-                  <span className="text-[10px] font-semibold text-amber-800 mt-0.5">
-                    Foto oficial em breve
-                  </span>
-                </div>
+                )}
               </div>
 
               {/* Informações Comerciais do Produto */}
@@ -345,6 +494,42 @@ export default function HomePage() {
           </div>
         </div>
       )}
+
+      {/* Rodapé Informativo Institucional do Brasa Caipira */}
+      <footer className="mt-8 border-t border-stone-200 bg-white px-5 py-6 text-center text-xs text-stone-600">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-amber-300 bg-black p-1 shadow-xs">
+          <Image
+            src="/images/brand/logo-oficial.jpg"
+            alt="Brasa Caipira"
+            width={40}
+            height={40}
+            className="object-contain"
+          />
+        </div>
+        <p className="mt-3 font-bold text-stone-900">BRASA CAIPIRA</p>
+        <p className="text-[11px] text-stone-500 mt-0.5">O verdadeiro sabor da brasa que reúne a família!</p>
+        <p className="mt-2 text-[11px] text-stone-500">
+          Rua dos Crisântemos, 350 — Jd. Nova Leme — Leme/SP (Em frente ao Mercado do Angu)
+        </p>
+        <div className="mt-3 flex items-center justify-center gap-4 text-xs font-semibold">
+          <a
+            href="https://wa.me/5519998107666"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-emerald-700 hover:underline flex items-center gap-1"
+          >
+            <MessageCircle className="h-3.5 w-3.5" /> (19) 99810-7666
+          </a>
+          <a
+            href="https://instagram.com/brasa.caipira"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-rose-700 hover:underline flex items-center gap-1"
+          >
+            <InstagramIcon className="h-3.5 w-3.5" /> @brasa.caipira
+          </a>
+        </div>
+      </footer>
 
       {/* Botão Flutuante do Carrinho */}
       {totalCartItems > 0 && (
