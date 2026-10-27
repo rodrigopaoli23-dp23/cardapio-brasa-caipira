@@ -44,6 +44,7 @@ function InstagramIcon({ className = 'h-4 w-4' }: { className?: string }) {
 export default function HomePage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('Todas')
   const [searchQuery, setSearchQuery] = useState<string>('')
+  const [products, setProducts] = useState<InitialProduct[]>(INITIAL_PRODUCTS)
   const [cart, setCart] = useState<Record<string, number>>({})
   const [productPhotos, setProductPhotos] = useState<Record<string, { url: string; isPrimary: boolean }[]>>({})
   const [selectedPhotoZoom, setSelectedPhotoZoom] = useState<{
@@ -51,6 +52,18 @@ export default function HomePage() {
     title: string
     desc?: string | null
   } | null>(null)
+
+  // Sincronizar catálogo com alterações salvas no painel administrativo
+  useEffect(() => {
+    try {
+      const storedCatalog = localStorage.getItem('brasa_caipira_catalog_v1')
+      if (storedCatalog) {
+        setProducts(JSON.parse(storedCatalog))
+      }
+    } catch {
+      // Fallback para INITIAL_PRODUCTS
+    }
+  }, [])
 
   // Carregar fotos persistidas do armazenamento local (sincronizado com o painel admin)
   useEffect(() => {
@@ -64,16 +77,16 @@ export default function HomePage() {
     }
   }, [])
 
-  // Categorias comerciais
+  // Categorias comerciais (estritamente 68 itens comerciais à venda)
   const categories = useMemo(() => {
-    const commercialItems = INITIAL_PRODUCTS.filter((p) => p.isCommercial)
+    const commercialItems = products.filter((p) => p.isCommercial)
     const cats = Array.from(new Set(commercialItems.map((p) => p.categoria)))
     return ['Todas', ...cats]
-  }, [])
+  }, [products])
 
   // Filtragem dinâmica de produtos
   const filteredProducts = useMemo(() => {
-    return INITIAL_PRODUCTS.filter((p) => {
+    return products.filter((p) => {
       if (!p.isCommercial) return false
       const matchesCategory =
         selectedCategory === 'Todas' || p.categoria === selectedCategory
@@ -84,10 +97,14 @@ export default function HomePage() {
         (p.descricao && p.descricao.toLowerCase().includes(searchQuery.toLowerCase()))
       return matchesCategory && matchesSearch
     })
-  }, [selectedCategory, searchQuery])
+  }, [products, selectedCategory, searchQuery])
 
-  // Gestão do carrinho
+  // Gestão do carrinho — Bloqueia estritamente itens sem preço aprovado
   const addToCart = (code: string) => {
+    const targetProd = products.find((p) => p.codigo === code)
+    if (!targetProd || targetProd.preco === null || targetProd.preco <= 0) {
+      return // Regra Inegociável: Não permitir compra de produto sem preço aprovado
+    }
     setCart((prev) => ({ ...prev, [code]: (prev[code] || 0) + 1 }))
   }
 
@@ -106,11 +123,14 @@ export default function HomePage() {
   const totalCartItems = Object.values(cart).reduce((a, b) => a + b, 0)
 
   const cartItemsList = useMemo(() => {
-    return Object.entries(cart).map(([code, qty]) => {
-      const prod = INITIAL_PRODUCTS.find((p) => p.codigo === code)!
-      return { prod, qty }
-    })
-  }, [cart])
+    return Object.entries(cart)
+      .map(([code, qty]) => {
+        const prod = products.find((p) => p.codigo === code)
+        if (!prod || prod.preco === null || prod.preco <= 0) return null
+        return { prod, qty }
+      })
+      .filter((item): item is { prod: InitialProduct; qty: number } => item !== null)
+  }, [cart, products])
 
   return (
     <main className="mx-auto min-h-screen max-w-md bg-[#fdfbf7] pb-36 shadow-sm md:max-w-2xl">
@@ -423,7 +443,11 @@ export default function HomePage() {
                     )}
                   </div>
 
-                  {qtyInCart > 0 ? (
+                  {p.preco === null || p.preco <= 0 ? (
+                    <span className="inline-flex items-center rounded-xl bg-stone-100 px-3 py-1.5 text-[11px] font-semibold text-stone-400 border border-stone-200 cursor-not-allowed">
+                      Sob consulta
+                    </span>
+                  ) : qtyInCart > 0 ? (
                     <div className="flex items-center gap-2 rounded-xl bg-orange-50 border border-orange-300 px-2 py-1">
                       <button
                         onClick={() => removeFromCart(p.codigo)}

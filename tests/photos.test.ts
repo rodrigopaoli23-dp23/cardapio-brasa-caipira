@@ -191,6 +191,7 @@ describe('Módulo de Validação e Integridade de Fotos (Brasa Caipira)', () => 
     expect(counts.withPhotosCount).toBe(1)
     expect(counts.pendingPhotosCount).toBe(2) // BC-002 e BC-003 pendentes
     expect(counts.historicalRecipesCount).toBe(4)
+    expect(counts.addonsCount).toBe(7)
     expect(counts.futureIdeasCount).toBe(8)
   })
 

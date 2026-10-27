@@ -46,6 +46,28 @@ export default function AdminDashboardPage() {
   const [productPhotos, setProductPhotos] = useState<Record<string, { url: string; isPrimary: boolean }[]>>({})
   const [photoUploadFeedback, setPhotoUploadFeedback] = useState<string | null>(null)
 
+  // Persistência Real do Catálogo: Carregar produtos do armazenamento local
+  useEffect(() => {
+    try {
+      const storedCatalog = localStorage.getItem('brasa_caipira_catalog_v1')
+      if (storedCatalog) {
+        setProducts(JSON.parse(storedCatalog))
+      }
+    } catch {
+      // Fallback para INITIAL_PRODUCTS
+    }
+  }, [])
+
+  // Persistência Real: Salvar produtos sempre que houver alteração de preço ou status
+  const saveProductsPersistently = (updated: InitialProduct[]) => {
+    setProducts(updated)
+    try {
+      localStorage.setItem('brasa_caipira_catalog_v1', JSON.stringify(updated))
+    } catch {
+      // Armazenamento local
+    }
+  }
+
   // Persistência Real: Carregar fotos salvas do armazenamento local
   useEffect(() => {
     try {
@@ -101,27 +123,25 @@ export default function AdminDashboardPage() {
 
   // Alternar disponibilidade rápida
   const toggleAvailability = (code: string) => {
-    setProducts((prev) =>
-      prev.map((p) => {
-        if (p.codigo === code) {
-          const isCurrentlyActive = !p.observacoes?.includes('ESGOTADO')
-          const updatedObs = isCurrentlyActive
-            ? `${p.observacoes || ''} [ESGOTADO HOJE]`.trim()
-            : (p.observacoes || '').replace('[ESGOTADO HOJE]', '').trim()
-          return { ...p, observacoes: updatedObs }
-        }
-        return p
-      })
-    )
+    const updated = products.map((p) => {
+      if (p.codigo === code) {
+        const isCurrentlyActive = !p.observacoes?.includes('ESGOTADO')
+        const updatedObs = isCurrentlyActive
+          ? `${p.observacoes || ''} [ESGOTADO HOJE]`.trim()
+          : (p.observacoes || '').replace('[ESGOTADO HOJE]', '').trim()
+        return { ...p, observacoes: updatedObs }
+      }
+      return p
+    })
+    saveProductsPersistently(updated)
   }
 
-  // Salvar preço alterado
+  // Salvar preço alterado (persiste imediatamente no cardápio público)
   const handleSavePrice = (code: string) => {
     const num = parseFloat(editPriceInput.replace(',', '.'))
     if (!isNaN(num) && num >= 0) {
-      setProducts((prev) =>
-        prev.map((p) => (p.codigo === code ? { ...p, preco: num } : p))
-      )
+      const updated = products.map((p) => (p.codigo === code ? { ...p, preco: num } : p))
+      saveProductsPersistently(updated)
       setEditingCode(null)
       setEditPriceInput('')
     }

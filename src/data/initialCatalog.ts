@@ -1,4 +1,6 @@
 // Dados iniciais normalizados a partir da planilha oficial do Brasa Caipira
+export type ProductClassification = 'commercial' | 'addon' | 'historical_recipe' | 'future_idea'
+
 export interface InitialProduct {
   codigo: string
   categoria: string
@@ -11,6 +13,7 @@ export interface InitialProduct {
   evidencia: string | null
   observacoes: string | null
   isCommercial: boolean
+  classification: ProductClassification
 }
 
 export const INITIAL_PRODUCTS: InitialProduct[] = [
@@ -25,7 +28,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": "Quarta a sábado",
     "evidencia": "Histórico / conferir ativo",
     "observacoes": null,
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-002",
@@ -38,7 +42,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": "Quarta a sábado",
     "evidencia": "Histórico / conferir ativo",
     "observacoes": null,
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-003",
@@ -51,7 +56,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": "Quarta a sábado",
     "evidencia": "Histórico / conferir ativo",
     "observacoes": null,
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-004",
@@ -64,7 +70,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": "Quarta a sábado",
     "evidencia": "Histórico / conferir ativo",
     "observacoes": null,
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-005",
@@ -77,7 +84,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": "Quarta a sábado",
     "evidencia": "Histórico / conferir ativo",
     "observacoes": null,
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-006",
@@ -90,7 +98,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": "Quarta a sábado",
     "evidencia": "Histórico / conferir ativo",
     "observacoes": null,
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-007",
@@ -103,7 +112,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": "Quarta a sábado",
     "evidencia": "Histórico / conferir ativo",
     "observacoes": null,
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-008",
@@ -116,7 +126,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": "Quarta a sábado",
     "evidencia": "Histórico / conferir ativo",
     "observacoes": null,
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-009",
@@ -129,7 +140,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": "Quarta a sábado",
     "evidencia": "Histórico / conferir ativo",
     "observacoes": null,
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-010",
@@ -142,7 +154,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": "Quarta a sábado",
     "evidencia": "Histórico / conferir ativo",
     "observacoes": null,
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-011",
@@ -155,7 +168,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": "Quarta a sábado",
     "evidencia": "Histórico / conferir ativo",
     "observacoes": null,
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-012",
@@ -168,7 +182,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": "Quarta a sábado",
     "evidencia": "Histórico confirmado",
     "observacoes": "Montagem especial; base e valor dos adicionais configuráveis",
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-013",
@@ -181,7 +196,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": "Quarta a sábado",
     "evidencia": "Histórico confirmado",
     "observacoes": null,
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-014",
@@ -194,7 +210,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": "Quarta a sábado",
     "evidencia": "Histórico confirmado",
     "observacoes": null,
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-015",
@@ -207,7 +224,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": "Quarta a sábado",
     "evidencia": "Histórico confirmado",
     "observacoes": null,
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-016",
@@ -220,7 +238,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": "Quarta a sábado",
     "evidencia": "Histórico confirmado",
     "observacoes": "Preço histórico R$ 8,00; confirmar preço atual",
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-017",
@@ -233,7 +252,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": "Quarta a sábado",
     "evidencia": "Histórico confirmado",
     "observacoes": "Preço histórico R$ 8,00; confirmar preço atual",
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-018",
@@ -246,7 +266,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": "Quarta a sábado",
     "evidencia": "Histórico confirmado",
     "observacoes": "Preço histórico R$ 8,00; confirmar preço atual",
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-019",
@@ -259,7 +280,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": "Quarta a sábado",
     "evidencia": "Histórico confirmado",
     "observacoes": "Preço histórico R$ 8,00; confirmar preço atual",
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-020",
@@ -272,7 +294,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": null,
     "evidencia": "Histórico confirmado",
     "observacoes": null,
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-021",
@@ -285,7 +308,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": null,
     "evidencia": "Histórico confirmado",
     "observacoes": null,
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-022",
@@ -298,7 +322,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": null,
     "evidencia": "Informado em 26/10/2026",
     "observacoes": null,
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-023",
@@ -311,7 +336,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": null,
     "evidencia": "Informado em 26/10/2026",
     "observacoes": null,
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-024",
@@ -324,7 +350,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": null,
     "evidencia": "Informado em 26/10/2026",
     "observacoes": null,
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-025",
@@ -337,7 +364,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": null,
     "evidencia": "Informado em 26/10/2026",
     "observacoes": null,
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-026",
@@ -350,7 +378,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": null,
     "evidencia": "Informado em 26/10/2026",
     "observacoes": null,
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-027",
@@ -363,7 +392,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": null,
     "evidencia": "Informado em 26/10/2026",
     "observacoes": null,
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-028",
@@ -376,7 +406,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": null,
     "evidencia": "Informado em 26/10/2026",
     "observacoes": null,
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-029",
@@ -389,7 +420,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": null,
     "evidencia": "Informado em 26/10/2026",
     "observacoes": null,
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-030",
@@ -402,7 +434,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": null,
     "evidencia": "Informado em 26/10/2026",
     "observacoes": null,
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-031",
@@ -415,7 +448,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": null,
     "evidencia": "Informado em 26/10/2026",
     "observacoes": null,
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-032",
@@ -428,7 +462,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": null,
     "evidencia": "Informado em 26/10/2026",
     "observacoes": null,
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-033",
@@ -441,7 +476,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": null,
     "evidencia": "Informado em 26/10/2026",
     "observacoes": null,
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-034",
@@ -454,7 +490,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": null,
     "evidencia": "Informado em 26/10/2026",
     "observacoes": null,
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-035",
@@ -467,7 +504,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": null,
     "evidencia": "Informado em 26/10/2026",
     "observacoes": null,
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-036",
@@ -480,7 +518,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": null,
     "evidencia": "Informado em 26/10/2026",
     "observacoes": "Heineken Zero: confirmar rotulagem e teor alcoólico antes de classificar",
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-037",
@@ -493,7 +532,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": null,
     "evidencia": "Informado em 26/10/2026",
     "observacoes": "Heineken Zero: confirmar rotulagem e teor alcoólico antes de classificar",
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-038",
@@ -506,7 +546,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": null,
     "evidencia": "Informado em 26/10/2026",
     "observacoes": "Heineken Zero: confirmar rotulagem e teor alcoólico antes de classificar",
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-039",
@@ -519,7 +560,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": null,
     "evidencia": "Informado em 26/10/2026",
     "observacoes": "Heineken Zero: confirmar rotulagem e teor alcoólico antes de classificar",
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-040",
@@ -532,7 +574,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": null,
     "evidencia": "Informado em 26/10/2026",
     "observacoes": "Heineken Zero: confirmar rotulagem e teor alcoólico antes de classificar",
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-041",
@@ -545,7 +588,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": null,
     "evidencia": "Informado em 26/10/2026",
     "observacoes": "Heineken Zero: confirmar rotulagem e teor alcoólico antes de classificar",
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-042",
@@ -558,7 +602,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": null,
     "evidencia": "Informado em 26/10/2026",
     "observacoes": null,
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-043",
@@ -571,7 +616,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": null,
     "evidencia": "Histórico; conferir se substituída pela de 350 g",
     "observacoes": null,
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-044",
@@ -584,7 +630,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": null,
     "evidencia": "Histórico confirmado",
     "observacoes": "Salames Pamplona/Seara também citados para balcão; verificar embalagem",
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-045",
@@ -597,7 +644,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": null,
     "evidencia": "Histórico confirmado",
     "observacoes": "Salames Pamplona/Seara também citados para balcão; verificar embalagem",
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-046",
@@ -610,7 +658,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": null,
     "evidencia": "Histórico confirmado",
     "observacoes": "Salames Pamplona/Seara também citados para balcão; verificar embalagem",
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-047",
@@ -623,7 +672,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": null,
     "evidencia": "Histórico confirmado",
     "observacoes": "Salames Pamplona/Seara também citados para balcão; verificar embalagem",
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-048",
@@ -636,7 +686,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": null,
     "evidencia": "Histórico confirmado",
     "observacoes": "Salames Pamplona/Seara também citados para balcão; verificar embalagem",
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-049",
@@ -649,7 +700,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": null,
     "evidencia": "Histórico confirmado",
     "observacoes": "Salames Pamplona/Seara também citados para balcão; verificar embalagem",
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-050",
@@ -662,7 +714,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": null,
     "evidencia": "Histórico confirmado",
     "observacoes": "Salames Pamplona/Seara também citados para balcão; verificar embalagem",
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-051",
@@ -675,7 +728,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": null,
     "evidencia": "Histórico confirmado",
     "observacoes": "Salames Pamplona/Seara também citados para balcão; verificar embalagem",
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-052",
@@ -688,7 +742,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": "Domingo 10h–14h",
     "evidencia": "Histórico confirmado",
     "observacoes": "Promoções históricas R$ 39,90 e R$ 45,90; não assumir preço atual",
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-053",
@@ -701,7 +756,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": "Domingo",
     "evidencia": "Histórico confirmado",
     "observacoes": null,
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-054",
@@ -714,7 +770,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": "Domingo",
     "evidencia": "Citado em histórico; confirmar venda",
     "observacoes": null,
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-055",
@@ -727,7 +784,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": "Talharim sexta e sábado; demais conforme programação",
     "evidencia": "Histórico confirmado",
     "observacoes": "Lasanha com quatro camadas de massa relatadas; conferir ficha técnica",
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-056",
@@ -740,7 +798,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": "Talharim sexta e sábado; demais conforme programação",
     "evidencia": "Histórico confirmado",
     "observacoes": "Lasanha com quatro camadas de massa relatadas; conferir ficha técnica",
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-057",
@@ -753,7 +812,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": "Talharim sexta e sábado; demais conforme programação",
     "evidencia": "Histórico confirmado",
     "observacoes": "Lasanha com quatro camadas de massa relatadas; conferir ficha técnica",
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-058",
@@ -766,7 +826,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": null,
     "evidencia": "Histórico confirmado",
     "observacoes": "Pré-assar massa com molho, conforme planejamento",
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-059",
@@ -779,7 +840,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": null,
     "evidencia": "Histórico confirmado",
     "observacoes": "Pré-assar massa com molho, conforme planejamento",
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-060",
@@ -792,7 +854,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": null,
     "evidencia": "Histórico confirmado",
     "observacoes": "Pré-assar massa com molho, conforme planejamento",
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-061",
@@ -805,7 +868,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": "Sábado",
     "evidencia": "Histórico confirmado",
     "observacoes": null,
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-062",
@@ -818,7 +882,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": "Sábado",
     "evidencia": "Histórico confirmado",
     "observacoes": "Conforme composição informada em 26/10",
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-063",
@@ -831,7 +896,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": "Sábado",
     "evidencia": "Histórico confirmado",
     "observacoes": "Conforme composição informada em 26/10",
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-064",
@@ -844,7 +910,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": "Sábado",
     "evidencia": "Histórico confirmado",
     "observacoes": "Conforme composição informada em 26/10",
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-065",
@@ -857,7 +924,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": "Quinta",
     "evidencia": "Histórico confirmado",
     "observacoes": null,
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-066",
@@ -870,7 +938,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": "Quinta",
     "evidencia": "Histórico confirmado",
     "observacoes": "Conforme composição informada em 26/10",
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-067",
@@ -883,7 +952,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": "Quinta",
     "evidencia": "Histórico confirmado",
     "observacoes": "Conforme composição informada em 26/10",
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-068",
@@ -896,7 +966,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": "Quinta",
     "evidencia": "Histórico confirmado",
     "observacoes": "Conforme composição informada em 26/10",
-    "isCommercial": true
+    "isCommercial": true,
+    "classification": "commercial"
   },
   {
     "codigo": "BC-069",
@@ -909,7 +980,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": null,
     "evidencia": "Histórico de edição semanal",
     "observacoes": "Não publicar como produto independente sem confirmar disponibilidade",
-    "isCommercial": false
+    "isCommercial": false,
+    "classification": "historical_recipe"
   },
   {
     "codigo": "BC-070",
@@ -922,7 +994,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": null,
     "evidencia": "Teste / edição especial",
     "observacoes": "Não publicar como produto independente sem confirmar disponibilidade",
-    "isCommercial": false
+    "isCommercial": false,
+    "classification": "historical_recipe"
   },
   {
     "codigo": "BC-071",
@@ -935,7 +1008,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": null,
     "evidencia": "Histórico",
     "observacoes": "Não publicar como produto independente sem confirmar disponibilidade",
-    "isCommercial": false
+    "isCommercial": false,
+    "classification": "historical_recipe"
   },
   {
     "codigo": "BC-072",
@@ -948,7 +1022,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": null,
     "evidencia": "Planejamento / teste",
     "observacoes": "Não publicar como produto independente sem confirmar disponibilidade",
-    "isCommercial": false
+    "isCommercial": false,
+    "classification": "historical_recipe"
   },
   {
     "codigo": "BC-073",
@@ -961,7 +1036,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": null,
     "evidencia": "Componente confirmado; venda avulsa não confirmada",
     "observacoes": null,
-    "isCommercial": true
+    "isCommercial": false,
+    "classification": "addon"
   },
   {
     "codigo": "BC-074",
@@ -974,7 +1050,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": null,
     "evidencia": "Componente confirmado; venda avulsa não confirmada",
     "observacoes": null,
-    "isCommercial": true
+    "isCommercial": false,
+    "classification": "addon"
   },
   {
     "codigo": "BC-075",
@@ -987,7 +1064,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": null,
     "evidencia": "Componente confirmado; venda avulsa não confirmada",
     "observacoes": null,
-    "isCommercial": true
+    "isCommercial": false,
+    "classification": "addon"
   },
   {
     "codigo": "BC-076",
@@ -1000,7 +1078,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": null,
     "evidencia": "Componente confirmado; venda avulsa não confirmada",
     "observacoes": null,
-    "isCommercial": true
+    "isCommercial": false,
+    "classification": "addon"
   },
   {
     "codigo": "BC-077",
@@ -1013,7 +1092,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": null,
     "evidencia": "Componente confirmado; venda avulsa não confirmada",
     "observacoes": null,
-    "isCommercial": true
+    "isCommercial": false,
+    "classification": "addon"
   },
   {
     "codigo": "BC-078",
@@ -1026,7 +1106,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": null,
     "evidencia": "Componente confirmado; venda avulsa não confirmada",
     "observacoes": null,
-    "isCommercial": true
+    "isCommercial": false,
+    "classification": "addon"
   },
   {
     "codigo": "BC-079",
@@ -1039,7 +1120,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": null,
     "evidencia": "Componente confirmado; venda avulsa não confirmada",
     "observacoes": null,
-    "isCommercial": true
+    "isCommercial": false,
+    "classification": "addon"
   },
   {
     "codigo": "BC-080",
@@ -1052,7 +1134,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": null,
     "evidencia": "Sugestão não confirmada",
     "observacoes": null,
-    "isCommercial": false
+    "isCommercial": false,
+    "classification": "future_idea"
   },
   {
     "codigo": "BC-081",
@@ -1065,7 +1148,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": null,
     "evidencia": "Sugestão não confirmada",
     "observacoes": null,
-    "isCommercial": false
+    "isCommercial": false,
+    "classification": "future_idea"
   },
   {
     "codigo": "BC-082",
@@ -1078,7 +1162,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": null,
     "evidencia": "Sugestão não confirmada",
     "observacoes": null,
-    "isCommercial": false
+    "isCommercial": false,
+    "classification": "future_idea"
   },
   {
     "codigo": "BC-083",
@@ -1091,7 +1176,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": null,
     "evidencia": "Sugestão não confirmada",
     "observacoes": null,
-    "isCommercial": false
+    "isCommercial": false,
+    "classification": "future_idea"
   },
   {
     "codigo": "BC-084",
@@ -1104,7 +1190,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": null,
     "evidencia": "Sugestão não confirmada",
     "observacoes": null,
-    "isCommercial": false
+    "isCommercial": false,
+    "classification": "future_idea"
   },
   {
     "codigo": "BC-085",
@@ -1117,7 +1204,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": null,
     "evidencia": "Sugestão não confirmada",
     "observacoes": null,
-    "isCommercial": false
+    "isCommercial": false,
+    "classification": "future_idea"
   },
   {
     "codigo": "BC-086",
@@ -1130,7 +1218,8 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": null,
     "evidencia": "Sugestão não confirmada",
     "observacoes": null,
-    "isCommercial": false
+    "isCommercial": false,
+    "classification": "future_idea"
   },
   {
     "codigo": "BC-087",
@@ -1143,6 +1232,7 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "dia_periodo": null,
     "evidencia": "Sugestão não confirmada",
     "observacoes": null,
-    "isCommercial": false
+    "isCommercial": false,
+    "classification": "future_idea"
   }
 ];

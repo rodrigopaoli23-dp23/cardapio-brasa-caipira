@@ -127,10 +127,10 @@ export function calculatePendingPhotosCount(
   withPhotosCount: number
   pendingPhotosCount: number
   historicalRecipesCount: number
+  addonsCount: number
   futureIdeasCount: number
 } {
   const commercialProducts = products.filter((p) => p.isCommercial)
-  const nonCommercial = products.filter((p) => !p.isCommercial)
 
   let withPhotosCount = 0
   for (const prod of commercialProducts) {
@@ -145,7 +145,8 @@ export function calculatePendingPhotosCount(
     withPhotosCount,
     pendingPhotosCount: commercialProducts.length - withPhotosCount,
     historicalRecipesCount: 4, // BC-069 a BC-072
-    futureIdeasCount: 8,       // BC-080 a BC-087
+    addonsCount: 7,            // BC-073 a BC-079 (Acompanhamentos e adicionais)
+    futureIdeasCount: 8,       // BC-080 a BC-087 (Ideias futuras)
   }
 }
 
