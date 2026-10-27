@@ -9,17 +9,16 @@ import {
 } from '../src/lib/bannerCarouselManager'
 
 describe('Hero Banner & Carrossel Oficial (Etapa D — Agente 3)', () => {
-  it('1. Deve iniciar com 3 slides oficiais (Espetinhos, Massas, Churrasco Grego) sem fotos falsas', () => {
+  it('1. Deve iniciar com 3 slides oficiais (Espetinhos, Massas, Churrasco Grego) usando os cartazes oficiais da pasta FOTO', () => {
     expect(DEFAULT_HERO_BANNER.slides).toHaveLength(3)
     expect(DEFAULT_HERO_BANNER.slides[0].titulo).toBe('A BRASA TEM ESCOLHA!')
     expect(DEFAULT_HERO_BANNER.slides[0].imagemUrl).toBe('/images/brand/banner-espetinhos.png')
 
-    // Slides 2 e 3 utilizam null (arte oficial / placeholder) sem inventar fotografia falsa
     expect(DEFAULT_HERO_BANNER.slides[1].selo).toBe('Massas Frescas')
-    expect(DEFAULT_HERO_BANNER.slides[1].imagemUrl).toBeNull()
+    expect(DEFAULT_HERO_BANNER.slides[1].imagemUrl).toBe('/images/brand/banner-massas.png')
 
     expect(DEFAULT_HERO_BANNER.slides[2].titulo).toContain('CHURRASCO GREGO')
-    expect(DEFAULT_HERO_BANNER.slides[2].imagemUrl).toBeNull()
+    expect(DEFAULT_HERO_BANNER.slides[2].imagemUrl).toBe('/images/brand/banner-grego.png')
   })
 
   it('2. Deve permitir editar todos os textos e blocos de destaque do banner', () => {

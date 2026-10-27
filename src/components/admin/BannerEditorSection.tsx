@@ -29,7 +29,9 @@ interface BannerEditorSectionProps {
 }
 
 const OFFICIAL_IMAGE_OPTIONS = [
-  { label: 'Foto Oficial: Espetinhos na Brasa', url: '/images/brand/banner-espetinhos.png' },
+  { label: 'Cartaz Oficial 1: Espetinhos na Brasa', url: '/images/brand/banner-espetinhos.png' },
+  { label: 'Cartaz Oficial 2: Massas Frescas (Talharim)', url: '/images/brand/banner-massas.png' },
+  { label: 'Cartaz Oficial 3: Churrasco Grego', url: '/images/brand/banner-grego.png' },
   { label: 'Logotipo Oficial Brasa Caipira', url: '/images/brand/logo-oficial.jpg' },
   { label: 'Sem fotografia (Usar Arte Oficial da Marca)', url: '' },
 ]

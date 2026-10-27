@@ -30,10 +30,10 @@ export const DEFAULT_HERO_BANNER: HeroBannerConfig = {
       ordem: 2,
       ativo: true,
       selo: 'Massas Frescas',
-      titulo: 'TALHARIM À BOLONHESA NO POTE',
+      titulo: 'SABOR QUE CONQUISTA NA PRIMEIRA GARFADA!',
       descricao:
-        'Massa fresca artesanal com molho bolonhesa encorpado preparado na casa. Consulte disponibilidade e peça pelo WhatsApp!',
-      imagemUrl: null,
+        'Talharim à bolonhesa no pote preparado na casa. Consulte disponibilidade e peça pelo WhatsApp!',
+      imagemUrl: '/images/brand/banner-massas.png',
       categoriaAlvo: 'Massas',
     },
     {
@@ -41,10 +41,10 @@ export const DEFAULT_HERO_BANNER: HeroBannerConfig = {
       ordem: 3,
       ativo: true,
       selo: 'Tradição da Casa',
-      titulo: 'CHURRASCO GREGO ESPECIAL',
+      titulo: 'TODA QUINTA TEM CHURRASCO GREGO!',
       descricao:
-        'Às quintas e sábados: carnes selecionadas assadas lentamente com bacon defumado Pamplona, queijo e tempero caipira.',
-      imagemUrl: null,
+        'Às quintas e sábados: carnes selecionadas na brasa (em lanches e também na porção).',
+      imagemUrl: '/images/brand/banner-grego.png',
       categoriaAlvo: 'Churrasco Grego — Quinta',
     },
   ],
