@@ -9,7 +9,6 @@ import {
   Mail,
   ArrowLeft,
   ShieldCheck,
-  KeyRound,
   CheckCircle2,
   RefreshCw,
   AlertTriangle,
@@ -28,8 +27,8 @@ import {
 
 export default function AdminLoginPage() {
   const router = useRouter()
-  const [email, setEmail] = useState('admin@brasacaipira.com.br')
-  const [password, setPassword] = useState('brasa123')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [successNotice, setSuccessNotice] = useState<string | null>(null)
@@ -42,7 +41,7 @@ export default function AdminLoginPage() {
 
   // Estados do Modal/Painel "Esqueci minha senha"
   const [isRecoveryOpen, setIsRecoveryOpen] = useState(false)
-  const [recoveryEmail, setRecoveryEmail] = useState('admin@brasacaipira.com.br')
+  const [recoveryEmail, setRecoveryEmail] = useState('')
   const [generatedToken, setGeneratedToken] = useState<string | null>(null)
   const [tokenInput, setTokenInput] = useState('')
   const [newPassword, setNewPassword] = useState('')
@@ -53,13 +52,9 @@ export default function AdminLoginPage() {
   useEffect(() => {
     const report = getPersistenceAuditReport()
     setAuditReport(report)
-    const registered = getRegisteredAdminEmail()
-    setEmail(registered)
-    setRecoveryEmail(registered)
     const authRecord = loadAdminAuthRecord()
-    if (authRecord?.isCustomPassword || report.isSupabaseConfigured || report.mode === 'supabase_cloud') {
-      setHasCustomPassword(Boolean(authRecord?.isCustomPassword))
-      setPassword('')
+    if (authRecord?.isCustomPassword) {
+      setHasCustomPassword(true)
     }
   }, [])
 
@@ -192,32 +187,7 @@ export default function AdminLoginPage() {
           </p>
         </div>
 
-        {/* Card Destaque com o Login e Senha para Teste (Apenas em Modo Demonstrativo Local) */}
-        {auditReport.mode === 'local_demo' && !auditReport.isSupabaseConfigured && (
-          <div className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50/70 p-3.5 text-xs text-emerald-950">
-            <div className="flex items-center gap-1.5 font-bold text-emerald-900">
-              <KeyRound className="h-4 w-4 text-emerald-700" />
-              <span>Credenciais de Teste Local:</span>
-            </div>
-            <div className="mt-2 space-y-1 font-mono text-[11px] bg-white/80 p-2 rounded-lg border border-emerald-100">
-              <p>
-                <span className="text-stone-500 font-sans">E-mail:</span>{' '}
-                admin@brasacaipira.com.br
-              </p>
-              <p>
-                <span className="text-stone-500 font-sans">Senha:</span>{' '}
-                {hasCustomPassword
-                  ? '•••••••• (redefinida pelo administrador)'
-                  : 'brasa123'}
-              </p>
-            </div>
-            <p className="mt-2 text-[10px] text-emerald-700 leading-tight">
-              {hasCustomPassword
-                ? 'Uma nova senha personalizada foi configurada com hash seguro neste navegador.'
-                : 'Os campos já foram pré-preenchidos abaixo para facilitar o seu acesso imediato.'}
-            </p>
-          </div>
-        )}
+
 
         {/* Aviso de Sucesso ao Redefinir Senha */}
         {successNotice && (
