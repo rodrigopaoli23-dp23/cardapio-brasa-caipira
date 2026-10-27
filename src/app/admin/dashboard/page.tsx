@@ -5,7 +5,6 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
-  Flame,
   Package,
   Layers,
   Settings,
@@ -16,72 +15,132 @@ import {
   Edit3,
   Search,
   Calendar,
-  AlertTriangle,
   Save,
-  Clock,
   Sparkles,
   Camera,
-  Image as ImageIcon,
   Upload,
   Trash2,
   Star,
   X,
+  Plus,
+  ShoppingBag,
+  Printer,
+  Image as ImageIcon,
+  Database,
 } from 'lucide-react'
-import { INITIAL_PRODUCTS, InitialProduct } from '@/data/initialCatalog'
 import { formatCentsToBRL } from '@/lib/money'
 import { validateImageFile } from '@/lib/photos'
+import {
+  CategoryRecord,
+  ExtendedProduct,
+  GreekBBQProgram,
+  HeroBannerConfig,
+  StoreIdentityConfig,
+} from '@/types/phase3.types'
+import {
+  loadCatalogFromStorage,
+  saveCatalogToStorage,
+  loadCategoriesFromStorage,
+  saveCategoriesToStorage,
+} from '@/lib/catalogManager'
+import {
+  DEFAULT_STORE_IDENTITY,
+  loadStoreIdentity,
+  loadGreekBBQPrograms,
+} from '@/lib/storeAndScheduleManager'
+import {
+  DEFAULT_HERO_BANNER,
+  loadHeroBannerConfig,
+  saveHeroBannerConfig,
+} from '@/lib/bannerCarouselManager'
+import { getPersistenceAuditReport } from '@/lib/securityAndAuth'
+import ProductFormModal from '@/components/admin/ProductFormModal'
+import { CategoriesManagerSection } from '@/components/admin/CategoriesManagerSection'
+import StoreAndAgendaSection from '@/components/admin/StoreAndAgendaSection'
+import ChurrascoGregoSection from '@/components/admin/ChurrascoGregoSection'
+import BannerEditorSection from '@/components/admin/BannerEditorSection'
+import OrdersAndSalesTab from '@/components/admin/OrdersAndSalesTab'
+import PrintableMenuGenerator from '@/components/admin/PrintableMenuGenerator'
+
+type AdminTabId =
+  | 'produtos'
+  | 'grego'
+  | 'categorias'
+  | 'destaques'
+  | 'pedidos'
+  | 'impressao'
+  | 'config'
 
 export default function AdminDashboardPage() {
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState<'produtos' | 'grego' | 'categorias' | 'config'>('produtos')
-  const [products, setProducts] = useState<InitialProduct[]>(INITIAL_PRODUCTS)
+  const [activeTab, setActiveTab] = useState<AdminTabId>('produtos')
+  const [products, setProducts] = useState<ExtendedProduct[]>(() => loadCatalogFromStorage())
+  const [categoriesList, setCategoriesList] = useState<CategoryRecord[]>(() =>
+    loadCategoriesFromStorage(loadCatalogFromStorage())
+  )
+  const [storeIdentity, setStoreIdentity] = useState<StoreIdentityConfig>(DEFAULT_STORE_IDENTITY)
+  const [greekPrograms, setGreekPrograms] = useState<GreekBBQProgram[]>([])
+  const [bannerConfig, setBannerConfig] = useState<HeroBannerConfig>(DEFAULT_HERO_BANNER)
+  const [toastMessage, setToastMessage] = useState<string | null>(null)
+
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCat, setSelectedCat] = useState('Todas')
   const [photoFilter, setPhotoFilter] = useState<'all' | 'with_photo' | 'without_photo'>('all')
   const [editingCode, setEditingCode] = useState<string | null>(null)
   const [editPriceInput, setEditPriceInput] = useState<string>('')
-  
+
+  // Modal de Cadastro / Edição Completa de Produto
+  const [productModalOpen, setProductModalOpen] = useState(false)
+  const [productModalMode, setProductModalMode] = useState<'create' | 'edit'>('create')
+  const [selectedProductForEdit, setSelectedProductForEdit] = useState<ExtendedProduct | null>(null)
+
   // Modal de Fotos
-  const [photoModalProduct, setPhotoModalProduct] = useState<InitialProduct | null>(null)
-  const [productPhotos, setProductPhotos] = useState<Record<string, { url: string; isPrimary: boolean }[]>>({})
+  const [photoModalProduct, setPhotoModalProduct] = useState<ExtendedProduct | null>(null)
+  const [productPhotos, setProductPhotos] = useState<
+    Record<string, { url: string; isPrimary: boolean }[]>
+  >({})
   const [photoUploadFeedback, setPhotoUploadFeedback] = useState<string | null>(null)
 
-  // Persistência Real do Catálogo: Carregar produtos do armazenamento local
-  useEffect(() => {
-    try {
-      const storedCatalog = localStorage.getItem('brasa_caipira_catalog_v1')
-      if (storedCatalog) {
-        setProducts(JSON.parse(storedCatalog))
-      }
-    } catch {
-      // Fallback para INITIAL_PRODUCTS
-    }
-  }, [])
-
-  // Persistência Real: Salvar produtos sempre que houver alteração de preço ou status
-  const saveProductsPersistently = (updated: InitialProduct[]) => {
-    setProducts(updated)
-    try {
-      localStorage.setItem('brasa_caipira_catalog_v1', JSON.stringify(updated))
-    } catch {
-      // Armazenamento local
-    }
+  const notify = (msg: string) => {
+    setToastMessage(msg)
+    setTimeout(() => setToastMessage(null), 3500)
   }
 
-  // Persistência Real: Carregar fotos salvas do armazenamento local
+  // Carregar dados persistidos do armazenamento local
   useEffect(() => {
+    const loadedProducts = loadCatalogFromStorage()
+    setProducts(loadedProducts)
+    setCategoriesList(loadCategoriesFromStorage(loadedProducts))
+    setStoreIdentity(loadStoreIdentity())
+    setGreekPrograms(loadGreekBBQPrograms())
+    setBannerConfig(loadHeroBannerConfig())
+
     try {
-      const stored = localStorage.getItem('brasa_caipira_product_photos_v1')
-      if (stored) {
-        setProductPhotos(JSON.parse(stored))
+      const storedPhotos = localStorage.getItem('brasa_caipira_product_photos_v1')
+      if (storedPhotos) {
+        setProductPhotos(JSON.parse(storedPhotos))
       }
     } catch {
-      // Falha silenciosa em ambientes sem localStorage
+      // Fallback silencioso
     }
   }, [])
 
+  // Persistência Real: Salvar produtos sempre que houver alteração
+  const saveProductsPersistently = (updated: ExtendedProduct[]) => {
+    setProducts(updated)
+    saveCatalogToStorage(updated)
+  }
+
+  // Persistência Real: Salvar categorias
+  const saveCategoriesPersistently = (updated: CategoryRecord[]) => {
+    setCategoriesList(updated)
+    saveCategoriesToStorage(updated)
+  }
+
   // Persistência Real: Salvar fotos sempre que houver upload, exclusão ou troca de principal
-  const savePhotosPersistently = (updated: Record<string, { url: string; isPrimary: boolean }[]>) => {
+  const savePhotosPersistently = (
+    updated: Record<string, { url: string; isPrimary: boolean }[]>
+  ) => {
     setProductPhotos(updated)
     try {
       localStorage.setItem('brasa_caipira_product_photos_v1', JSON.stringify(updated))
@@ -90,14 +149,10 @@ export default function AdminDashboardPage() {
     }
   }
 
-  // Controle da Carne da Quinta
-  const [currentThursdayMeat, setCurrentThursdayMeat] = useState('Fraldinha Extra Grill com bacon Pamplona')
-  const [meatFeedback, setMeatFeedback] = useState(false)
-
-  // Configurações da Loja
-  const [isStoreOpen, setIsStoreOpen] = useState(true)
-  const [storeNotice, setStoreNotice] = useState('Espetinhos na brasa e churrasco grego tradicional em Leme/SP!')
-  const [savedConfigFeedback, setSavedConfigFeedback] = useState(false)
+  const handleBannerChange = (updated: HeroBannerConfig) => {
+    setBannerConfig(updated)
+    saveHeroBannerConfig(updated)
+  }
 
   // Logout
   const handleLogout = () => {
@@ -111,7 +166,7 @@ export default function AdminDashboardPage() {
     const matchSearch =
       p.produto.toLowerCase().includes(searchTerm.toLowerCase()) ||
       p.codigo.toLowerCase().includes(searchTerm.toLowerCase())
-    
+
     const photos = productPhotos[p.codigo] || []
     const matchPhoto =
       photoFilter === 'all' ||
@@ -125,11 +180,15 @@ export default function AdminDashboardPage() {
   const toggleAvailability = (code: string) => {
     const updated = products.map((p) => {
       if (p.codigo === code) {
-        const isCurrentlyActive = !p.observacoes?.includes('ESGOTADO')
+        const isCurrentlyActive = !p.observacoes?.includes('ESGOTADO') && p.status !== 'paused'
         const updatedObs = isCurrentlyActive
           ? `${p.observacoes || ''} [ESGOTADO HOJE]`.trim()
           : (p.observacoes || '').replace('[ESGOTADO HOJE]', '').trim()
-        return { ...p, observacoes: updatedObs }
+        return {
+          ...p,
+          observacoes: updatedObs,
+          status: isCurrentlyActive ? ('paused' as const) : ('published' as const),
+        }
       }
       return p
     })
@@ -138,7 +197,15 @@ export default function AdminDashboardPage() {
 
   // Salvar preço alterado (persiste imediatamente no cardápio público)
   const handleSavePrice = (code: string) => {
-    const num = parseFloat(editPriceInput.replace(',', '.'))
+    const trimmed = editPriceInput.trim()
+    if (trimmed === '') {
+      const updated = products.map((p) => (p.codigo === code ? { ...p, preco: null } : p))
+      saveProductsPersistently(updated)
+      setEditingCode(null)
+      setEditPriceInput('')
+      return
+    }
+    const num = parseFloat(trimmed.replace(',', '.'))
     if (!isNaN(num) && num >= 0) {
       const updated = products.map((p) => (p.codigo === code ? { ...p, preco: num } : p))
       saveProductsPersistently(updated)
@@ -153,8 +220,7 @@ export default function AdminDashboardPage() {
     if (!files || files.length === 0) return
 
     const fileList = Array.from(files)
-    
-    // Validação de formato e tamanho
+
     for (const file of fileList) {
       const validation = validateImageFile({
         name: file.name,
@@ -167,7 +233,6 @@ export default function AdminDashboardPage() {
       }
     }
 
-    // Leitura em Base64 para persistir no armazenamento
     let processedCount = 0
     const newPhotosToAdd: { url: string; isPrimary: boolean }[] = []
 
@@ -178,7 +243,7 @@ export default function AdminDashboardPage() {
         const currentCount = (productPhotos[code]?.length || 0) + newPhotosToAdd.length
         newPhotosToAdd.push({
           url: base64Url,
-          isPrimary: currentCount === 0, // apenas a primeira é primária
+          isPrimary: currentCount === 0,
         })
         processedCount += 1
 
@@ -220,24 +285,23 @@ export default function AdminDashboardPage() {
     savePhotosPersistently(updated)
   }
 
-  const handleUpdateThursdayMeat = (meatName: string) => {
-    setCurrentThursdayMeat(meatName)
-    setMeatFeedback(true)
-    setTimeout(() => setMeatFeedback(false), 3000)
-  }
+  const categoryFilterOptions = [
+    'Todas',
+    ...Array.from(
+      new Set([
+        ...categoriesList.filter((c) => !c.arquivada).map((c) => c.nome),
+        ...products.map((p) => p.categoria),
+      ])
+    ),
+  ]
 
-  const handleSaveStoreConfig = (e: React.FormEvent) => {
-    e.preventDefault()
-    setSavedConfigFeedback(true)
-    setTimeout(() => setSavedConfigFeedback(false), 3000)
-  }
-
-  const categories = ['Todas', ...Array.from(new Set(INITIAL_PRODUCTS.map((p) => p.categoria)))]
-  
   // Contagem estrita separando itens comerciais de receitas e ideias futuras
-  const commercialItems = products.filter((p) => p.isCommercial)
-  const commercialWithPhotos = commercialItems.filter((p) => (productPhotos[p.codigo] || []).length > 0).length
+  const commercialItems = products.filter((p) => p.isCommercial && p.status !== 'archived')
+  const commercialWithPhotos = commercialItems.filter(
+    (p) => (productPhotos[p.codigo] || []).length > 0
+  ).length
   const commercialPendingPhotos = commercialItems.length - commercialWithPhotos
+  const persistenceReport = getPersistenceAuditReport()
 
   return (
     <div className="min-h-screen bg-[#f7f5f0] text-stone-900 pb-20">
@@ -247,7 +311,7 @@ export default function AdminDashboardPage() {
           <div className="flex items-center gap-3">
             <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-xl border border-amber-400 bg-black shadow-xs">
               <Image
-                src="/images/brand/logo-oficial.jpg"
+                src={storeIdentity.logoUrl || '/images/brand/logo-oficial.jpg'}
                 alt="Logotipo Oficial Brasa Caipira"
                 fill
                 className="object-contain p-0.5"
@@ -255,12 +319,16 @@ export default function AdminDashboardPage() {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-extrabold text-sm text-stone-900">BRASA CAIPIRA</span>
+                <span className="font-extrabold text-sm text-stone-900">
+                  {storeIdentity.nome || 'BRASA CAIPIRA'}
+                </span>
                 <span className="rounded bg-[#c21e1e] px-1.5 py-0.5 text-[10px] font-bold text-white">
                   Painel Admin
                 </span>
               </div>
-              <span className="text-[11px] text-stone-500">admin@brasacaipira.com.br</span>
+              <span className="text-[11px] text-stone-500">
+                {storeIdentity.adminEmail || 'admin@brasacaipira.com.br'}
+              </span>
             </div>
           </div>
 
@@ -286,11 +354,18 @@ export default function AdminDashboardPage() {
 
       {/* Conteúdo Principal */}
       <main className="mx-auto max-w-5xl px-4 pt-5">
-        {/* Abas de Navegação */}
+        {toastMessage && (
+          <div className="mb-4 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-xs font-bold text-emerald-900 shadow-xs">
+            <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+            <span>{toastMessage}</span>
+          </div>
+        )}
+
+        {/* Abas de Navegação (Mantendo 100% do estilo visual aprovado) */}
         <div className="flex gap-2 overflow-x-auto border-b border-stone-200 pb-2">
           <button
             onClick={() => setActiveTab('produtos')}
-            className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition ${
+            className={`shrink-0 inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition ${
               activeTab === 'produtos'
                 ? 'bg-[#c21e1e] text-white shadow-sm shadow-red-900/20'
                 : 'bg-white text-stone-700 hover:bg-stone-50 border border-stone-200'
@@ -302,31 +377,67 @@ export default function AdminDashboardPage() {
 
           <button
             onClick={() => setActiveTab('grego')}
-            className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition ${
+            className={`shrink-0 inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition ${
               activeTab === 'grego'
                 ? 'bg-[#c21e1e] text-white shadow-sm shadow-red-900/20'
                 : 'bg-white text-stone-700 hover:bg-stone-50 border border-stone-200'
             }`}
           >
             <Sparkles className="h-4 w-4 text-amber-500" />
-            <span>Carne da Quinta (Grego)</span>
+            <span>Churrasco Grego</span>
           </button>
 
           <button
             onClick={() => setActiveTab('categorias')}
-            className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition ${
+            className={`shrink-0 inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition ${
               activeTab === 'categorias'
                 ? 'bg-[#c21e1e] text-white shadow-sm shadow-red-900/20'
                 : 'bg-white text-stone-700 hover:bg-stone-50 border border-stone-200'
             }`}
           >
             <Layers className="h-4 w-4" />
-            <span>Categorias (17)</span>
+            <span>Categorias ({categoriesList.filter((c) => !c.arquivada).length})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('destaques')}
+            className={`shrink-0 inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition ${
+              activeTab === 'destaques'
+                ? 'bg-[#c21e1e] text-white shadow-sm shadow-red-900/20'
+                : 'bg-white text-stone-700 hover:bg-stone-50 border border-stone-200'
+            }`}
+          >
+            <ImageIcon className="h-4 w-4" />
+            <span>Destaques & Banner</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('pedidos')}
+            className={`shrink-0 inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition ${
+              activeTab === 'pedidos'
+                ? 'bg-[#c21e1e] text-white shadow-sm shadow-red-900/20'
+                : 'bg-white text-stone-700 hover:bg-stone-50 border border-stone-200'
+            }`}
+          >
+            <ShoppingBag className="h-4 w-4" />
+            <span>Pedidos e Vendas</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('impressao')}
+            className={`shrink-0 inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition ${
+              activeTab === 'impressao'
+                ? 'bg-[#c21e1e] text-white shadow-sm shadow-red-900/20'
+                : 'bg-white text-stone-700 hover:bg-stone-50 border border-stone-200'
+            }`}
+          >
+            <Printer className="h-4 w-4" />
+            <span>Cardápio Impresso A4</span>
           </button>
 
           <button
             onClick={() => setActiveTab('config')}
-            className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition ${
+            className={`shrink-0 inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition ${
               activeTab === 'config'
                 ? 'bg-[#c21e1e] text-white shadow-sm shadow-red-900/20'
                 : 'bg-white text-stone-700 hover:bg-stone-50 border border-stone-200'
@@ -353,10 +464,13 @@ export default function AdminDashboardPage() {
                     Controle de Fotos do Cardápio Comercial
                   </h3>
                   <p className="text-[11px] text-amber-800 mt-0.5">
-                    <strong>{commercialPendingPhotos}</strong> de {commercialItems.length} produtos comerciais à venda aguardam fotos oficiais. No cardápio público, exibem o selo oficial <em>&quot;Foto oficial em breve&quot;</em>.
+                    <strong>{commercialPendingPhotos}</strong> de {commercialItems.length} produtos
+                    comerciais à venda aguardam fotos oficiais. No cardápio público, exibem o selo
+                    oficial <em>&quot;Foto oficial em breve&quot;</em>.
                   </p>
                   <p className="text-[10px] text-stone-500 mt-0.5">
-                    19 itens de receitas históricas e ideias futuras permanecem isolados sem poluir o catálogo comercial.
+                    Registros históricos, adicionais e ideias futuras permanecem classificados sem
+                    poluir o catálogo comercial.
                   </p>
                 </div>
               </div>
@@ -366,7 +480,9 @@ export default function AdminDashboardPage() {
                 <button
                   onClick={() => setPhotoFilter('all')}
                   className={`rounded-lg px-2.5 py-1 text-[11px] font-bold ${
-                    photoFilter === 'all' ? 'bg-amber-600 text-white' : 'text-stone-600 hover:bg-stone-100'
+                    photoFilter === 'all'
+                      ? 'bg-amber-600 text-white'
+                      : 'text-stone-600 hover:bg-stone-100'
                   }`}
                 >
                   Todos ({products.length})
@@ -374,23 +490,36 @@ export default function AdminDashboardPage() {
                 <button
                   onClick={() => setPhotoFilter('without_photo')}
                   className={`rounded-lg px-2.5 py-1 text-[11px] font-bold ${
-                    photoFilter === 'without_photo' ? 'bg-amber-600 text-white' : 'text-stone-600 hover:bg-stone-100'
+                    photoFilter === 'without_photo'
+                      ? 'bg-amber-600 text-white'
+                      : 'text-stone-600 hover:bg-stone-100'
                   }`}
                 >
-                  Sem foto ({products.length - Object.keys(productPhotos).filter((k) => (productPhotos[k] || []).length > 0).length})
+                  Sem foto (
+                  {products.length -
+                    Object.keys(productPhotos).filter((k) => (productPhotos[k] || []).length > 0)
+                      .length}
+                  )
                 </button>
                 <button
                   onClick={() => setPhotoFilter('with_photo')}
                   className={`rounded-lg px-2.5 py-1 text-[11px] font-bold ${
-                    photoFilter === 'with_photo' ? 'bg-amber-600 text-white' : 'text-stone-600 hover:bg-stone-100'
+                    photoFilter === 'with_photo'
+                      ? 'bg-amber-600 text-white'
+                      : 'text-stone-600 hover:bg-stone-100'
                   }`}
                 >
-                  Com foto ({Object.keys(productPhotos).filter((k) => (productPhotos[k] || []).length > 0).length})
+                  Com foto (
+                  {
+                    Object.keys(productPhotos).filter((k) => (productPhotos[k] || []).length > 0)
+                      .length
+                  }
+                  )
                 </button>
               </div>
             </div>
 
-            {/* Filtros e Busca */}
+            {/* Filtros, Busca e Botão Adicionar Produto */}
             <div className="flex flex-col sm:flex-row gap-2.5">
               <div className="relative flex-1">
                 <Search className="absolute left-3.5 top-3 h-4 w-4 text-stone-400" />
@@ -408,23 +537,42 @@ export default function AdminDashboardPage() {
                 onChange={(e) => setSelectedCat(e.target.value)}
                 className="rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-xs text-stone-800 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
               >
-                {categories.map((c) => (
-                  <option key={c} value={c}>{c}</option>
+                {categoryFilterOptions.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
                 ))}
               </select>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setProductModalMode('create')
+                  setSelectedProductForEdit(null)
+                  setProductModalOpen(true)
+                }}
+                className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#15803d] px-4 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-green-800 transition shrink-0"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Adicionar Produto</span>
+              </button>
             </div>
 
             {/* Lista dos Produtos */}
             <div className="space-y-2.5">
               {filtered.map((p) => {
-                const isOutOfStock = p.observacoes?.includes('ESGOTADO')
+                const isOutOfStock =
+                  p.observacoes?.includes('ESGOTADO') || p.status === 'paused'
+                const isArchived = p.status === 'archived'
                 const photos = productPhotos[p.codigo] || []
                 const primaryPhoto = photos.find((x) => x.isPrimary) || photos[0]
 
                 return (
                   <div
                     key={p.codigo}
-                    className="flex flex-col sm:flex-row sm:items-center justify-between rounded-2xl border border-stone-200 bg-white p-4 shadow-xs gap-3"
+                    className={`flex flex-col sm:flex-row sm:items-center justify-between rounded-2xl border bg-white p-4 shadow-xs gap-3 ${
+                      isArchived ? 'border-stone-300 opacity-65' : 'border-stone-200'
+                    }`}
                   >
                     <div className="flex items-start gap-3 flex-1">
                       {/* Miniatura ou Placeholder */}
@@ -454,17 +602,26 @@ export default function AdminDashboardPage() {
                       </button>
 
                       <div className="flex-1">
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <span className="rounded bg-stone-100 px-1.5 py-0.5 text-[10px] font-mono font-bold text-stone-600">
                             {p.codigo}
                           </span>
                           <h4 className="text-xs font-bold text-stone-900">{p.produto}</h4>
                           <span className="text-[10px] text-stone-400">({p.categoria})</span>
+                          {!p.isCommercial && (
+                            <span className="rounded bg-stone-200 px-1.5 py-0.5 text-[9px] font-bold uppercase text-stone-700">
+                              {p.classification === 'addon'
+                                ? 'Adicional'
+                                : p.classification === 'historical_recipe'
+                                  ? 'Receita Histórica'
+                                  : 'Ideia / Rascunho'}
+                            </span>
+                          )}
                         </div>
 
-                        {p.ingredientes && (
+                        {(p.descricao || p.ingredientes) && (
                           <p className="mt-1 text-[11px] text-stone-500">
-                            {p.ingredientes}
+                            {p.ingredientes || p.descricao}
                           </p>
                         )}
 
@@ -478,7 +635,11 @@ export default function AdminDashboardPage() {
                           <span className="rounded bg-stone-100 px-1.5 py-0.5 text-[10px] text-stone-600 font-medium">
                             {p.unidade}
                           </span>
-                          {isOutOfStock ? (
+                          {isArchived ? (
+                            <span className="rounded bg-stone-200 px-2 py-0.5 text-[10px] font-bold text-stone-700">
+                              ● Arquivado
+                            </span>
+                          ) : isOutOfStock ? (
                             <span className="rounded bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-700 border border-rose-200">
                               ● Esgotado hoje
                             </span>
@@ -492,7 +653,9 @@ export default function AdminDashboardPage() {
                             className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 hover:text-orange-700 ml-1"
                           >
                             <Camera className="h-3 w-3" />
-                            <span>{photos.length > 0 ? `${photos.length} foto(s)` : '+ Inserir Foto'}</span>
+                            <span>
+                              {photos.length > 0 ? `${photos.length} foto(s)` : '+ Inserir Foto'}
+                            </span>
                           </button>
                         </div>
                       </div>
@@ -529,7 +692,9 @@ export default function AdminDashboardPage() {
                         <div className="flex items-center gap-2">
                           <div className="text-right">
                             <span className="text-xs font-bold text-stone-900 block">
-                              {p.preco !== null ? formatCentsToBRL(p.preco * 100) : 'Sem preço'}
+                              {p.preco !== null && p.preco > 0
+                                ? formatCentsToBRL(Math.round(p.preco * 100))
+                                : 'Sem preço'}
                             </span>
                             <button
                               onClick={() => {
@@ -542,6 +707,19 @@ export default function AdminDashboardPage() {
                               Editar preço
                             </button>
                           </div>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setProductModalMode('edit')
+                              setSelectedProductForEdit(p)
+                              setProductModalOpen(true)
+                            }}
+                            className="rounded-xl border border-stone-200 bg-stone-50 px-2.5 py-1.5 text-[11px] font-bold text-stone-700 hover:border-amber-400 hover:bg-amber-50/40 transition"
+                            title="Editar todos os dados do produto"
+                          >
+                            Editar
+                          </button>
 
                           <button
                             onClick={() => toggleAvailability(p.codigo)}
@@ -561,6 +739,34 @@ export default function AdminDashboardPage() {
               })}
             </div>
           </div>
+        )}
+
+        {/* MODAL COMPLETO DE ADICIONAR / EDITAR PRODUTO */}
+        {productModalOpen && (
+          <ProductFormModal
+            isOpen={productModalOpen}
+            mode={productModalMode}
+            initialProduct={selectedProductForEdit}
+            product={selectedProductForEdit}
+            allProducts={products}
+            categories={categoriesList}
+            onClose={() => {
+              setProductModalOpen(false)
+              setSelectedProductForEdit(null)
+            }}
+            onSave={(updatedProducts, savedProd) => {
+              saveProductsPersistently(updatedProducts)
+              setProductModalOpen(false)
+              setSelectedProductForEdit(null)
+              notify(`Produto ${savedProd.codigo} (${savedProd.produto}) salvo com sucesso!`)
+            }}
+            onDelete={(updatedProducts, deletedCode) => {
+              saveProductsPersistently(updatedProducts)
+              setProductModalOpen(false)
+              setSelectedProductForEdit(null)
+              notify(`Produto ${deletedCode} excluído do catálogo.`)
+            }}
+          />
         )}
 
         {/* ============================================================ */}
@@ -630,7 +836,8 @@ export default function AdminDashboardPage() {
 
                 {(productPhotos[photoModalProduct.codigo] || []).length === 0 ? (
                   <div className="rounded-xl border border-stone-200 bg-stone-50 p-4 text-center text-xs text-stone-500">
-                    Nenhuma foto cadastrada ainda para este item. O cardápio exibirá a arte oficial <em>&quot;Foto oficial em breve&quot;</em>.
+                    Nenhuma foto cadastrada ainda para este item. O cardápio exibirá a arte oficial{' '}
+                    <em>&quot;Foto oficial em breve&quot;</em>.
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 gap-2.5">
@@ -638,7 +845,9 @@ export default function AdminDashboardPage() {
                       <div
                         key={index}
                         className={`relative rounded-xl overflow-hidden border-2 bg-stone-100 p-1 ${
-                          photo.isPrimary ? 'border-amber-500 ring-2 ring-amber-300' : 'border-stone-200'
+                          photo.isPrimary
+                            ? 'border-amber-500 ring-2 ring-amber-300'
+                            : 'border-stone-200'
                         }`}
                       >
                         <div className="relative h-28 w-full rounded-lg overflow-hidden">
@@ -655,10 +864,16 @@ export default function AdminDashboardPage() {
                             type="button"
                             onClick={() => handleSetPrimaryPhoto(photoModalProduct.codigo, index)}
                             className={`inline-flex items-center gap-1 text-[10px] font-bold ${
-                              photo.isPrimary ? 'text-amber-700' : 'text-stone-400 hover:text-stone-700'
+                              photo.isPrimary
+                                ? 'text-amber-700'
+                                : 'text-stone-400 hover:text-stone-700'
                             }`}
                           >
-                            <Star className={`h-3 w-3 ${photo.isPrimary ? 'fill-amber-500 text-amber-500' : ''}`} />
+                            <Star
+                              className={`h-3 w-3 ${
+                                photo.isPrimary ? 'fill-amber-500 text-amber-500' : ''
+                              }`}
+                            />
                             <span>{photo.isPrimary ? 'Foto Principal' : 'Tornar Capa'}</span>
                           </button>
 
@@ -692,192 +907,117 @@ export default function AdminDashboardPage() {
         )}
 
         {/* ============================================================ */}
-        {/* ABA 2: CHURRASCO GREGO — CARNE DA QUINTA-FEIRA */}
+        {/* ABA 2: CHURRASCO GREGO (Quinta, Sábado, Costela em Rascunho e Novos Dias) */}
         {/* ============================================================ */}
         {activeTab === 'grego' && (
-          <div className="mt-5 rounded-2xl border border-stone-200 bg-white p-6 shadow-xs">
-            <div className="flex items-start gap-3">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-500 text-white shadow-md shadow-amber-500/20">
-                <Sparkles className="h-6 w-6" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-stone-900">
-                  Carne da Semana — Churrasco Grego de Quinta-Feira
-                </h3>
-                <p className="text-xs text-stone-500 mt-0.5">
-                  Conforme a regra do Brasa Caipira, a carne de quinta-feira muda semanalmente. Alterne aqui sem precisar recriar os lanches.
-                </p>
-              </div>
-            </div>
-
-            {meatFeedback && (
-              <div className="mt-4 flex items-center gap-2 rounded-xl bg-emerald-50 p-3 text-xs text-emerald-800 border border-emerald-200">
-                <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-                <span>Carne da semana atualizada com sucesso! O cardápio refletirá esta opção.</span>
-              </div>
-            )}
-
-            <div className="mt-6">
-              <label className="block text-xs font-semibold text-stone-700 mb-2">
-                Carne Ativa para a Próxima Quinta-Feira:
-              </label>
-              <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3.5 text-xs font-bold text-amber-900 flex items-center justify-between">
-                <span>{currentThursdayMeat}</span>
-                <span className="rounded bg-amber-200 px-2 py-0.5 text-[10px] text-amber-950 font-bold">
-                  EM CARTAZ
-                </span>
-              </div>
-            </div>
-
-            <div className="mt-6 border-t border-stone-100 pt-5">
-              <h4 className="text-xs font-bold text-stone-700 mb-3">
-                Escolher dentre as Receitas Históricas Catalogadas:
-              </h4>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {[
-                  'Fraldinha Extra Grill com bacon Pamplona',
-                  'Churrasco grego cupim com abacaxi ao mel (BC-070)',
-                  'Churrasco grego suíno com bacon e pimentões (BC-069)',
-                  'Churrasco grego suíno com paleta / copa-lombo (BC-072)',
-                  'Churrasco grego bovino tradicional (BC-071)',
-                ].map((meat) => (
-                  <button
-                    key={meat}
-                    onClick={() => handleUpdateThursdayMeat(meat)}
-                    className={`rounded-xl border p-3 text-left text-xs font-semibold transition ${
-                      currentThursdayMeat === meat
-                        ? 'border-orange-500 bg-orange-50 text-orange-950 ring-1 ring-orange-500'
-                        : 'border-stone-200 bg-stone-50/50 hover:bg-stone-100 text-stone-800'
-                    }`}
-                  >
-                    {meat}
-                  </button>
-                ))}
-              </div>
-            </div>
+          <div className="mt-5">
+            <ChurrascoGregoSection
+              onProgramsUpdated={(updated) => {
+                setGreekPrograms(updated)
+                notify('Programação do Churrasco Grego atualizada!')
+              }}
+            />
           </div>
         )}
 
         {/* ============================================================ */}
-        {/* ABA 3: CATEGORIAS */}
+        {/* ABA 3: CATEGORIAS (CRUD Completo + Organização de Porções) */}
         {/* ============================================================ */}
         {activeTab === 'categorias' && (
-          <div className="mt-5 space-y-3">
-            <p className="text-xs text-stone-500">
-              17 categorias estruturadas no banco de dados com contagem de produtos associados.
-            </p>
-
-            <div className="grid gap-2.5 sm:grid-cols-2">
-              {categories.filter((c) => c !== 'Todas').map((cat, idx) => {
-                const count = products.filter((p) => p.categoria === cat).length
-                return (
-                  <div
-                    key={cat}
-                    className="flex items-center justify-between rounded-xl border border-stone-200 bg-white p-3.5 shadow-xs"
-                  >
-                    <div>
-                      <span className="text-[10px] font-mono font-bold text-stone-400 block">
-                        CAT-{String(idx + 1).padStart(2, '0')}
-                      </span>
-                      <span className="text-xs font-bold text-stone-900">{cat}</span>
-                    </div>
-                    <span className="rounded-full bg-stone-100 px-2.5 py-1 text-[11px] font-semibold text-stone-600">
-                      {count} itens
-                    </span>
-                  </div>
-                )
-              })}
-            </div>
+          <div className="mt-5">
+            <CategoriesManagerSection
+              products={products}
+              categories={categoriesList}
+              onUpdateCategories={(updated) => {
+                saveCategoriesPersistently(updated)
+              }}
+              onUpdateProducts={(updatedProds) => {
+                saveProductsPersistently(updatedProds)
+              }}
+            />
           </div>
         )}
 
         {/* ============================================================ */}
-        {/* ABA 4: CONFIGURAÇÕES DA LOJA & WHATSAPP */}
+        {/* ABA 4: DESTAQUES & CARROSSEL DA PÁGINA INICIAL */}
+        {/* ============================================================ */}
+        {activeTab === 'destaques' && (
+          <div className="mt-5">
+            <BannerEditorSection
+              config={bannerConfig}
+              onChange={handleBannerChange}
+              onNotify={notify}
+            />
+          </div>
+        )}
+
+        {/* ============================================================ */}
+        {/* ABA 5: PEDIDOS, INDICADORES E EXPORTAÇÃO EXCEL (.XLSX) */}
+        {/* ============================================================ */}
+        {activeTab === 'pedidos' && (
+          <div className="mt-5">
+            <OrdersAndSalesTab />
+          </div>
+        )}
+
+        {/* ============================================================ */}
+        {/* ABA 6: GERADOR DE CARDÁPIO PARA IMPRESSÃO (PDF A4 FRENTE E VERSO) */}
+        {/* ============================================================ */}
+        {activeTab === 'impressao' && (
+          <div className="mt-5">
+            <PrintableMenuGenerator
+              products={products}
+              categories={categoriesList}
+              storeIdentity={storeIdentity}
+              greekPrograms={greekPrograms}
+            />
+          </div>
+        )}
+
+        {/* ============================================================ */}
+        {/* ABA 7: IDENTIDADE DA LOJA, GOOGLE MAPS, AGENDA SEMANAL E PERSISTÊNCIA */}
         {/* ============================================================ */}
         {activeTab === 'config' && (
-          <form onSubmit={handleSaveStoreConfig} className="mt-5 rounded-2xl border border-stone-200 bg-white p-6 shadow-xs space-y-4">
-            <h3 className="text-sm font-bold text-stone-900 border-b border-stone-100 pb-3">
-              Informações Oficiais do Brasa Caipira
-            </h3>
+          <div className="mt-5 space-y-5">
+            <StoreAndAgendaSection
+              onIdentityUpdated={(updated) => {
+                setStoreIdentity(updated)
+                notify('Identidade e configurações da loja salvas!')
+              }}
+              onScheduleUpdated={() => {
+                notify('Agenda da semana e status de funcionamento atualizados!')
+              }}
+            />
 
-            {savedConfigFeedback && (
-              <div className="rounded-xl bg-emerald-50 p-3 text-xs text-emerald-800 border border-emerald-200">
-                Configurações da loja salvas com sucesso!
-              </div>
-            )}
-
-            <div>
-              <label className="block text-xs font-semibold text-stone-700 mb-1">
-                WhatsApp Comercial Oficial (com DDD)
-              </label>
-              <input
-                type="text"
-                defaultValue="(19) 99810-7666"
-                className="w-full rounded-xl border border-stone-200 bg-stone-50/50 py-2.5 px-3 text-xs text-stone-900 font-mono"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-stone-700 mb-1">
-                Endereço Físico
-              </label>
-              <input
-                type="text"
-                defaultValue="Rua dos Crisantemos, 350 — Jardim Nova Leme — Leme/SP"
-                className="w-full rounded-xl border border-stone-200 bg-stone-50/50 py-2.5 px-3 text-xs text-stone-900"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-stone-700 mb-1">
-                Ponto de Referência
-              </label>
-              <input
-                type="text"
-                defaultValue="Em frente ao Mercado do Angu"
-                className="w-full rounded-xl border border-stone-200 bg-stone-50/50 py-2.5 px-3 text-xs text-stone-900"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-stone-700 mb-1">
-                Aviso em Destaque no Topo do Cardápio
-              </label>
-              <input
-                type="text"
-                value={storeNotice}
-                onChange={(e) => setStoreNotice(e.target.value)}
-                className="w-full rounded-xl border border-stone-200 bg-stone-50/50 py-2.5 px-3 text-xs text-stone-900"
-              />
-            </div>
-
-            <div className="flex items-center justify-between border-t border-stone-100 pt-4">
-              <div>
-                <span className="text-xs font-semibold text-stone-800 block">Status da Loja</span>
-                <span className="text-[11px] text-stone-500">
-                  {isStoreOpen ? 'Aberto para receber pedidos' : 'Loja fechada temporariamente'}
+            {/* Transparência de Persistência Local vs. Supabase Cloud */}
+            <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-xs space-y-2.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Database className="h-4 w-4 text-[#c21e1e]" />
+                  <h4 className="text-xs font-black uppercase text-stone-900">
+                    Diagnóstico de Persistência de Dados
+                  </h4>
+                </div>
+                <span
+                  className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
+                    persistenceReport.isSupabaseConfigured
+                      ? 'bg-emerald-100 text-emerald-800'
+                      : 'bg-amber-100 text-amber-900'
+                  }`}
+                >
+                  {persistenceReport.isSupabaseConfigured
+                    ? 'Supabase Cloud Conectado'
+                    : 'Modo Demonstrativo Local (localStorage)'}
                 </span>
               </div>
-              <button
-                type="button"
-                onClick={() => setIsStoreOpen(!isStoreOpen)}
-                className={`rounded-xl px-4 py-2 text-xs font-bold transition ${
-                  isStoreOpen
-                    ? 'bg-emerald-600 text-white'
-                    : 'bg-stone-300 text-stone-700'
-                }`}
-              >
-                {isStoreOpen ? 'ABERTO' : 'FECHADO'}
-              </button>
+              <p className="text-[11px] text-stone-600">
+                Todas as alterações feitas neste painel (produtos, preços, fotos, categorias,
+                agenda, churrasco grego, banner e pedidos) são persistidas imediatamente no
+                navegador e sincronizadas com o cardápio público. As migrações SQL do Supabase
+                PostgreSQL estão prontas para ativação em nuvem.
+              </p>
             </div>
-
-            <button
-              type="submit"
-              className="w-full rounded-xl bg-orange-600 py-3 text-xs font-semibold text-white shadow-md shadow-orange-600/20 hover:bg-orange-700 transition"
-            >
-              Salvar Alterações
-            </button>
-          </form>
+          </div>
         )}
       </main>
     </div>

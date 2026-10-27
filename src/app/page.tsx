@@ -4,11 +4,9 @@ import { useState, useMemo, useEffect } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import {
-  Flame,
   Clock,
   MapPin,
   Search,
-  ShoppingCart,
   Shield,
   Calendar,
   X,
@@ -18,10 +16,44 @@ import {
   Camera,
   Maximize2,
   Sparkles,
-  ChevronRight,
+  ExternalLink,
 } from 'lucide-react'
-import { INITIAL_PRODUCTS, InitialProduct } from '@/data/initialCatalog'
 import { formatCentsToBRL } from '@/lib/money'
+import {
+  CategoryRecord,
+  ExtendedProduct,
+  GreekBBQProgram,
+  HeroBannerConfig,
+  OrderItemSnapshot,
+  StoreIdentityConfig,
+  WeeklyScheduleConfig,
+} from '@/types/phase3.types'
+import {
+  loadCatalogFromStorage,
+  loadCategoriesFromStorage,
+} from '@/lib/catalogManager'
+import {
+  DEFAULT_STORE_IDENTITY,
+  DEFAULT_WEEKLY_SCHEDULE,
+  evaluateStoreOpenStatus,
+  loadGreekBBQPrograms,
+  loadStoreIdentity,
+  loadWeeklySchedule,
+} from '@/lib/storeAndScheduleManager'
+import {
+  DEFAULT_HERO_BANNER,
+  loadHeroBannerConfig,
+} from '@/lib/bannerCarouselManager'
+import {
+  addItemToCart,
+  canProductBePurchased,
+  createCartItemSnapshot,
+  loadCartFromStorage,
+  saveCartToStorage,
+  updateCartItemQuantity,
+} from '@/lib/checkoutAndCart'
+import HeroBannerCarousel from '@/components/HeroBannerCarousel'
+import CartAndCheckoutDrawer from '@/components/CartAndCheckoutDrawer'
 
 function InstagramIcon({ className = 'h-4 w-4' }: { className?: string }) {
   return (
@@ -44,50 +76,95 @@ function InstagramIcon({ className = 'h-4 w-4' }: { className?: string }) {
 export default function HomePage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('Todas')
   const [searchQuery, setSearchQuery] = useState<string>('')
-  const [products, setProducts] = useState<InitialProduct[]>(INITIAL_PRODUCTS)
-  const [cart, setCart] = useState<Record<string, number>>({})
-  const [productPhotos, setProductPhotos] = useState<Record<string, { url: string; isPrimary: boolean }[]>>({})
+  const [products, setProducts] = useState<ExtendedProduct[]>(() => loadCatalogFromStorage())
+  const [categoriesList, setCategoriesList] = useState<CategoryRecord[]>(() =>
+    loadCategoriesFromStorage(loadCatalogFromStorage())
+  )
+  const [storeIdentity, setStoreIdentity] = useState<StoreIdentityConfig>(DEFAULT_STORE_IDENTITY)
+  const [weeklySchedule, setWeeklySchedule] =
+    useState<WeeklyScheduleConfig>(DEFAULT_WEEKLY_SCHEDULE)
+  const [greekPrograms, setGreekPrograms] = useState<GreekBBQProgram[]>([])
+  const [bannerConfig, setBannerConfig] = useState<HeroBannerConfig>(DEFAULT_HERO_BANNER)
+
+  // Carrinho completo sincronizado (suportando variantes, adicionais e checkout estruturado)
+  const [cartItems, setCartItems] = useState<OrderItemSnapshot[]>([])
+  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false)
+  const [customizingProduct, setCustomizingProduct] = useState<ExtendedProduct | null>(null)
+
+  const [productPhotos, setProductPhotos] = useState<
+    Record<string, { url: string; isPrimary: boolean }[]>
+  >({})
   const [selectedPhotoZoom, setSelectedPhotoZoom] = useState<{
     url: string
     title: string
     desc?: string | null
   } | null>(null)
 
-  // Sincronizar catálogo com alterações salvas no painel administrativo
+  // Sincronizar catálogo, categorias, loja, agenda, carrossel e fotos com o painel administrativo
   useEffect(() => {
+    const loadedProds = loadCatalogFromStorage()
+    setProducts(loadedProds)
+    setCategoriesList(loadCategoriesFromStorage(loadedProds))
+    setStoreIdentity(loadStoreIdentity())
+    setWeeklySchedule(loadWeeklySchedule())
+    setGreekPrograms(loadGreekBBQPrograms())
+    setBannerConfig(loadHeroBannerConfig())
+    setCartItems(loadCartFromStorage())
+
     try {
-      const storedCatalog = localStorage.getItem('brasa_caipira_catalog_v1')
-      if (storedCatalog) {
-        setProducts(JSON.parse(storedCatalog))
+      const storedPhotos = localStorage.getItem('brasa_caipira_product_photos_v1')
+      if (storedPhotos) {
+        setProductPhotos(JSON.parse(storedPhotos))
       }
     } catch {
-      // Fallback para INITIAL_PRODUCTS
+      // Fallback silencioso
     }
   }, [])
 
-  // Carregar fotos persistidas do armazenamento local (sincronizado com o painel admin)
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem('brasa_caipira_product_photos_v1')
-      if (stored) {
-        setProductPhotos(JSON.parse(stored))
-      }
-    } catch {
-      // Falha silenciosa em ambientes sem localStorage
-    }
-  }, [])
+  const handleUpdateCart = (nextCart: OrderItemSnapshot[]) => {
+    setCartItems(nextCart)
+    saveCartToStorage(nextCart)
+  }
 
-  // Categorias comerciais (estritamente 68 itens comerciais à venda)
+  // Status de abertura da loja em tempo real (fuso America/Sao_Paulo + override manual temporário)
+  const storeOpenStatus = useMemo(() => {
+    return evaluateStoreOpenStatus(weeklySchedule)
+  }, [weeklySchedule])
+
+  // Categorias comerciais visíveis e ordenadas
   const categories = useMemo(() => {
-    const commercialItems = products.filter((p) => p.isCommercial)
-    const cats = Array.from(new Set(commercialItems.map((p) => p.categoria)))
-    return ['Todas', ...cats]
-  }, [products])
+    const commercialItems = products.filter(
+      (p) => p.isCommercial && p.status !== 'archived' && p.status !== 'unp_draft'
+    )
+    const activeCatNamesFromProducts = new Set(commercialItems.map((p) => p.categoria))
 
-  // Filtragem dinâmica de produtos
+    const orderedVisible = [...categoriesList]
+      .filter((c) => c.visivel && !c.arquivada && activeCatNamesFromProducts.has(c.nome))
+      .sort((a, b) => a.ordem - b.ordem)
+      .map((c) => c.nome)
+
+    // Garantir que nenhuma categoria comercial ativa fique de fora
+    for (const catName of activeCatNamesFromProducts) {
+      const record = categoriesList.find((c) => c.nome === catName)
+      if (!record && !orderedVisible.includes(catName)) {
+        orderedVisible.push(catName)
+      }
+    }
+
+    return ['Todas', ...orderedVisible]
+  }, [products, categoriesList])
+
+  // Filtragem dinâmica de produtos comerciais publicados
   const filteredProducts = useMemo(() => {
+    const hiddenCategories = new Set(
+      categoriesList.filter((c) => !c.visivel || c.arquivada).map((c) => c.nome)
+    )
+
     return products.filter((p) => {
       if (!p.isCommercial) return false
+      if (p.status === 'archived' || p.status === 'unp_draft') return false
+      if (hiddenCategories.has(p.categoria)) return false
+
       const matchesCategory =
         selectedCategory === 'Todas' || p.categoria === selectedCategory
       const matchesSearch =
@@ -97,46 +174,60 @@ export default function HomePage() {
         (p.descricao && p.descricao.toLowerCase().includes(searchQuery.toLowerCase()))
       return matchesCategory && matchesSearch
     })
-  }, [products, selectedCategory, searchQuery])
+  }, [products, categoriesList, selectedCategory, searchQuery])
 
-  // Gestão do carrinho — Bloqueia estritamente itens sem preço aprovado
-  const addToCart = (code: string) => {
-    const targetProd = products.find((p) => p.codigo === code)
-    if (!targetProd || targetProd.preco === null || targetProd.preco <= 0) {
-      return // Regra Inegociável: Não permitir compra de produto sem preço aprovado
-    }
-    setCart((prev) => ({ ...prev, [code]: (prev[code] || 0) + 1 }))
+  // Programações publicadas de Churrasco Grego (Quinta-feira, Sábado, etc. — exclui rascunhos como a Costela bovina)
+  const publishedGreekPrograms = useMemo(() => {
+    return greekPrograms.filter((g) => g.status === 'published')
+  }, [greekPrograms])
+
+  // Quantidade total de um código específico no carrinho
+  const getProductQtyInCart = (code: string): number => {
+    return cartItems
+      .filter((item) => item.codigo === code)
+      .reduce((acc, item) => acc + item.quantidade, 0)
   }
 
-  const removeFromCart = (code: string) => {
-    setCart((prev) => {
-      const next = { ...prev }
-      if (next[code] > 1) {
-        next[code] -= 1
-      } else {
-        delete next[code]
-      }
-      return next
-    })
+  // Adicionar ao carrinho (abre personalização se houver variantes/adicionais ou adiciona rápido)
+  const handleAddProductClick = (product: ExtendedProduct) => {
+    if (!canProductBePurchased(product)) return
+    setCustomizingProduct(product)
   }
 
-  const totalCartItems = Object.values(cart).reduce((a, b) => a + b, 0)
-
-  const cartItemsList = useMemo(() => {
-    return Object.entries(cart)
-      .map(([code, qty]) => {
-        const prod = products.find((p) => p.codigo === code)
-        if (!prod || prod.preco === null || prod.preco <= 0) return null
-        return { prod, qty }
+  const handleIncrementInCart = (product: ExtendedProduct) => {
+    if (!canProductBePurchased(product)) return
+    const existingItem = cartItems.find((item) => item.codigo === product.codigo)
+    if (existingItem) {
+      const updated = updateCartItemQuantity(
+        cartItems,
+        existingItem.id,
+        existingItem.quantidade + 1
+      )
+      handleUpdateCart(updated)
+    } else {
+      const snapshot = createCartItemSnapshot({
+        product,
+        quantidade: 1,
       })
-      .filter((item): item is { prod: InitialProduct; qty: number } => item !== null)
-  }, [cart, products])
+      if (snapshot) {
+        handleUpdateCart(addItemToCart(cartItems, snapshot))
+      }
+    }
+  }
+
+  const handleDecrementInCart = (code: string) => {
+    const matchingItems = cartItems.filter((item) => item.codigo === code)
+    if (matchingItems.length === 0) return
+    const lastItem = matchingItems[matchingItems.length - 1]
+    const updated = updateCartItemQuantity(cartItems, lastItem.id, lastItem.quantidade - 1)
+    handleUpdateCart(updated)
+  }
 
   return (
     <main className="mx-auto min-h-screen max-w-md bg-[#fdfbf7] pb-36 shadow-sm md:max-w-2xl">
       {/* Top Banner de Identidade Visual Inspirado no Folheto Oficial */}
       <div className="bg-[#991b1b] px-4 py-2 text-center text-xs font-extrabold text-amber-200 tracking-wide border-b border-amber-500/30">
-        🔥 O VERDADEIRO SABOR DA BRASA QUE REÚNE A FAMÍLIA!
+        {storeIdentity.avisoTopo || '🔥 O VERDADEIRO SABOR DA BRASA QUE REÚNE A FAMÍLIA!'}
       </div>
 
       {/* Cabeçalho da Marca com Logotipo Oficial */}
@@ -146,7 +237,7 @@ export default function HomePage() {
             {/* Logotipo Oficial Fornecido */}
             <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-2xl border-2 border-amber-400 bg-black shadow-md shadow-amber-900/10">
               <Image
-                src="/images/brand/logo-oficial.jpg"
+                src={storeIdentity.logoUrl || '/images/brand/logo-oficial.jpg'}
                 alt="Logotipo Oficial Brasa Caipira"
                 fill
                 priority
@@ -155,17 +246,31 @@ export default function HomePage() {
             </div>
             <div>
               <h1 className="text-xl font-extrabold tracking-tight text-stone-900 leading-none">
-                BRASA CAIPIRA
+                {storeIdentity.nome || 'BRASA CAIPIRA'}
               </h1>
               <p className="mt-1 text-xs text-stone-600 font-medium">
-                Rua dos Crisântemos, 350 — Jd. Nova Leme
+                {storeIdentity.endereco}, {storeIdentity.numero} — {storeIdentity.bairro}
               </p>
-              <div className="mt-1.5 flex items-center gap-2">
-                <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-800 ring-1 ring-inset ring-emerald-600/20">
-                  ● Cardápio Aberto
-                </span>
+              <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                {storeOpenStatus.isOpen ? (
+                  <span
+                    title={storeOpenStatus.reason}
+                    className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-800 ring-1 ring-inset ring-emerald-600/20"
+                  >
+                    ● {storeOpenStatus.statusText || 'Cardápio Aberto'}
+                  </span>
+                ) : (
+                  <span
+                    title={storeOpenStatus.reason}
+                    className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-900 ring-1 ring-inset ring-amber-600/20"
+                  >
+                    ● {storeOpenStatus.statusText}
+                  </span>
+                )}
                 <span className="text-[11px] text-stone-400">•</span>
-                <span className="text-[11px] font-semibold text-orange-700">Leme / SP</span>
+                <span className="text-[11px] font-semibold text-orange-700">
+                  {storeIdentity.cidadeEstado || 'Leme / SP'}
+                </span>
               </div>
             </div>
           </div>
@@ -179,44 +284,62 @@ export default function HomePage() {
           </Link>
         </div>
 
-        {/* Informações Oficiais de Atendimento */}
+        {/* Informações Oficiais de Atendimento e Rota Google Maps */}
         <div className="mt-4 grid grid-cols-2 gap-2 text-xs text-stone-700">
           <div className="flex items-center gap-2 rounded-xl bg-amber-50/70 p-2.5 border border-amber-200/60">
             <Clock className="h-4 w-4 shrink-0 text-amber-700" />
             <div className="leading-tight">
               <span className="font-bold block text-stone-900">Horários</span>
-              <span className="text-[11px] text-stone-600">Qua a Sáb 18h–23h<br />Dom 10h–14h</span>
+              <span className="text-[11px] text-stone-600">
+                Qua a Sáb 18h–23h
+                <br />
+                Dom 10h–14h
+              </span>
             </div>
           </div>
-          <div className="flex items-center gap-2 rounded-xl bg-amber-50/70 p-2.5 border border-amber-200/60">
-            <MapPin className="h-4 w-4 shrink-0 text-amber-700" />
-            <div className="leading-tight">
-              <span className="font-bold block text-stone-900">Localização</span>
-              <span className="text-[11px] text-stone-600">Em frente ao Mercado do Angu</span>
+          <a
+            href={
+              storeIdentity.googleMapsUrl ||
+              'https://www.google.com/maps/dir/?api=1&destination=Rua+dos+Crisantemos,+350,+Jardim+Nova+Leme,+Leme+-+SP'
+            }
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Abrir rota no Google Maps"
+            className="flex items-center justify-between gap-1.5 rounded-xl bg-amber-50/70 p-2.5 border border-amber-200/60 hover:border-amber-400 hover:bg-amber-100/50 transition"
+          >
+            <div className="flex items-center gap-2 leading-tight">
+              <MapPin className="h-4 w-4 shrink-0 text-amber-700" />
+              <div>
+                <span className="font-bold block text-stone-900">Localização</span>
+                <span className="text-[11px] text-stone-600">
+                  {storeIdentity.pontoReferencia || 'Em frente ao Mercado do Angu'}
+                </span>
+              </div>
             </div>
-          </div>
+            <ExternalLink className="h-3.5 w-3.5 shrink-0 text-amber-700" />
+          </a>
         </div>
 
         {/* Links Oficiais em Evidência (WhatsApp & Instagram) */}
         <div className="mt-3 flex items-center justify-between gap-2 border-t border-stone-100 pt-3 text-xs">
           <a
-            href="https://wa.me/5519998107666"
+            href={`https://wa.me/${storeIdentity.telefoneWhatsapp || '5519998107666'}`}
             target="_blank"
             rel="noopener noreferrer"
             className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-emerald-50 py-2 px-3 font-bold text-emerald-800 border border-emerald-200 hover:bg-emerald-100 transition"
           >
             <MessageCircle className="h-4 w-4 text-emerald-600" />
-            <span>(19) 99810-7666</span>
+            <span>{storeIdentity.telefoneExibicao || '(19) 99810-7666'}</span>
           </a>
 
           <a
-            href="https://instagram.com/brasa.caipira"
+            href={storeIdentity.instagramUrl || 'https://instagram.com/brasa.caipira'}
             target="_blank"
             rel="noopener noreferrer"
             className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-rose-50 py-2 px-3 font-bold text-rose-800 border border-rose-200 hover:bg-rose-100 transition"
           >
             <InstagramIcon className="h-4 w-4 text-rose-600" />
-            <span>@brasa.caipira</span>
+            <span>{storeIdentity.instagramHandle || '@brasa.caipira'}</span>
           </a>
         </div>
 
@@ -227,7 +350,7 @@ export default function HomePage() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Buscar espetinho, churrasco grego, lanche, massa..."
+            placeholder="Buscar espetinho, churrasco grego, lanche, porção, massa..."
             className="w-full rounded-xl border border-stone-200 bg-stone-50/70 py-2.5 pl-10 pr-4 text-xs text-stone-900 placeholder:text-stone-400 focus:border-orange-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-orange-500"
           />
           {searchQuery && (
@@ -241,67 +364,16 @@ export default function HomePage() {
         </div>
       </header>
 
-      {/* BANNER DE NOVIDADES & DESTAQUES DA CASA COM ARTE OFICIAL FORNECIDA */}
-      <section className="px-4 pt-4">
-        <div className="overflow-hidden rounded-2xl border-2 border-amber-400/80 bg-gradient-to-br from-[#991b1b] via-[#b91c1c] to-[#7f1d1d] text-white shadow-md">
-          {/* Imagem Oficial dos Espetinhos Brasa Caipira */}
-          <div
-            onClick={() =>
-              setSelectedPhotoZoom({
-                url: '/images/brand/banner-espetinhos.png',
-                title: 'A Brasa Tem Escolha — Espetinhos Brasa Caipira',
-                desc: 'Carne bovina, frango grelhado, queijo coalho e medalhão com farofa e molhos especiais!',
-              })
-            }
-            className="relative h-52 sm:h-64 w-full cursor-pointer group bg-black/30"
-          >
-            <Image
-              src="/images/brand/banner-espetinhos.png"
-              alt="A Brasa Tem Escolha — Espetinhos Brasa Caipira"
-              fill
-              priority
-              className="object-cover group-hover:scale-102 transition duration-300"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent flex items-end p-4">
-              <div className="flex items-center justify-between w-full">
-                <div>
-                  <span className="rounded-md bg-amber-400 px-2 py-0.5 text-[10px] font-black uppercase text-stone-950">
-                    Foto & Cartaz Oficial
-                  </span>
-                  <h2 className="mt-1 text-sm sm:text-base font-black text-white drop-shadow-md">
-                    A BRASA TEM ESCOLHA!
-                  </h2>
-                </div>
-                <span className="bg-black/60 text-white rounded-full p-2 group-hover:scale-110 transition shadow-sm">
-                  <Maximize2 className="h-4 w-4" />
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="p-4">
-            <div className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-amber-300">
-              <Sparkles className="h-4 w-4 text-amber-300" />
-              <span>Destaques da Semana no Brasa Caipira</span>
-            </div>
-
-            <p className="mt-1 text-xs text-amber-100/90 leading-snug">
-              Espetos tradicionais assados na brasa, acompanhados de farofa artesanal caipira e molhos especiais da casa. Faça seu pedido direto no balcão ou via WhatsApp!
-            </p>
-
-            <div className="mt-3 grid grid-cols-2 gap-2 text-[11px]">
-              <div className="rounded-xl bg-black/30 p-2 border border-white/10">
-                <span className="font-bold text-amber-300 block">Massas Frescas</span>
-                <span className="text-[10px] text-stone-200">Talharim à bolonhesa no pote</span>
-              </div>
-              <div className="rounded-xl bg-black/30 p-2 border border-white/10">
-                <span className="font-bold text-amber-300 block">Churrasco Grego</span>
-                <span className="text-[10px] text-stone-200">Às quintas: fraldinha ou lombo</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+      {/* BANNER DE NOVIDADES & CARROSSEL DE 3 SLIDES (Preservando 100% do visual aprovado) */}
+      <HeroBannerCarousel
+        config={bannerConfig}
+        onZoomPhoto={setSelectedPhotoZoom}
+        onSelectCategory={(cat) => {
+          if (categories.includes(cat)) {
+            setSelectedCategory(cat)
+          }
+        }}
+      />
 
       {/* Navegação por Categorias com Rolagem Suave */}
       <nav className="sticky top-0 z-20 border-b border-stone-200 bg-[#fdfbf7]/95 px-4 py-3 backdrop-blur-md mt-2">
@@ -322,6 +394,33 @@ export default function HomePage() {
         </div>
       </nav>
 
+      {/* Destaque de Programação do Churrasco Grego quando aplicável */}
+      {selectedCategory.toLowerCase().includes('grego') && publishedGreekPrograms.length > 0 && (
+        <section className="px-4 pt-3">
+          <div className="rounded-2xl border border-amber-300 bg-amber-50/90 p-3.5 space-y-2">
+            <div className="flex items-center gap-1.5 text-xs font-extrabold text-amber-950">
+              <Sparkles className="h-4 w-4 text-amber-600" />
+              <span>Programação Oficial do Churrasco Grego</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {publishedGreekPrograms.map((prog) => (
+                <div
+                  key={prog.id}
+                  className="rounded-xl border border-amber-200 bg-white p-2.5 text-xs"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-black text-[#c21e1e]">{prog.diaSemana}</span>
+                    <span className="text-[10px] font-semibold text-stone-500">{prog.horario}</span>
+                  </div>
+                  <p className="font-bold text-stone-900 mt-0.5">{prog.carnePrincipal}</p>
+                  <p className="text-[11px] text-stone-600 mt-0.5">{prog.descricaoReceita}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* Listagem de Produtos com Área Proporcional de Foto */}
       <section className="px-4 py-4 space-y-3.5">
         <div className="flex items-center justify-between text-xs text-stone-500 px-1 font-medium">
@@ -332,9 +431,11 @@ export default function HomePage() {
         </div>
 
         {filteredProducts.map((p) => {
-          const qtyInCart = cart[p.codigo] || 0
+          const qtyInCart = getProductQtyInCart(p.codigo)
           const photos = productPhotos[p.codigo] || []
           const primaryPhoto = photos.find((x) => x.isPrimary) || photos[0]
+          const isPurchasable = canProductBePurchased(p)
+          const isOutOfStock = p.observacoes?.includes('ESGOTADO') || p.status === 'paused'
 
           return (
             <article
@@ -427,13 +528,10 @@ export default function HomePage() {
                 {/* Preço e Botão de Adição */}
                 <div className="mt-3.5 flex items-center justify-between border-t border-stone-100 pt-2.5">
                   <div>
-                    {p.preco !== null ? (
+                    {p.preco !== null && p.preco > 0 ? (
                       <div className="flex items-baseline gap-1">
                         <span className="text-base font-extrabold text-stone-900">
-                          {formatCentsToBRL(p.preco * 100)}
-                        </span>
-                        <span className="text-[10px] text-amber-800 font-semibold">
-                          (histórico)
+                          {formatCentsToBRL(Math.round(p.preco * 100))}
                         </span>
                       </div>
                     ) : (
@@ -443,15 +541,20 @@ export default function HomePage() {
                     )}
                   </div>
 
-                  {p.preco === null || p.preco <= 0 ? (
+                  {isOutOfStock ? (
+                    <span className="inline-flex items-center rounded-xl bg-rose-50 px-3 py-1.5 text-[11px] font-bold text-rose-700 border border-rose-200 cursor-not-allowed">
+                      Esgotado hoje
+                    </span>
+                  ) : !isPurchasable ? (
                     <span className="inline-flex items-center rounded-xl bg-stone-100 px-3 py-1.5 text-[11px] font-semibold text-stone-400 border border-stone-200 cursor-not-allowed">
                       Sob consulta
                     </span>
                   ) : qtyInCart > 0 ? (
                     <div className="flex items-center gap-2 rounded-xl bg-orange-50 border border-orange-300 px-2 py-1">
                       <button
-                        onClick={() => removeFromCart(p.codigo)}
+                        onClick={() => handleDecrementInCart(p.codigo)}
                         className="flex h-6 w-6 items-center justify-center rounded-lg bg-white text-orange-700 shadow-xs hover:bg-orange-100 transition"
+                        aria-label="Diminuir quantidade"
                       >
                         <Minus className="h-3.5 w-3.5" />
                       </button>
@@ -459,15 +562,16 @@ export default function HomePage() {
                         {qtyInCart}
                       </span>
                       <button
-                        onClick={() => addToCart(p.codigo)}
+                        onClick={() => handleIncrementInCart(p)}
                         className="flex h-6 w-6 items-center justify-center rounded-lg bg-[#c21e1e] text-white shadow-xs hover:bg-red-700 transition"
+                        aria-label="Aumentar quantidade"
                       >
                         <Plus className="h-3.5 w-3.5" />
                       </button>
                     </div>
                   ) : (
                     <button
-                      onClick={() => addToCart(p.codigo)}
+                      onClick={() => handleAddProductClick(p)}
                       className="inline-flex items-center gap-1 rounded-xl bg-stone-900 px-3.5 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-[#c21e1e] transition active:scale-95"
                     >
                       <Plus className="h-3.5 w-3.5" />
@@ -519,80 +623,72 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* Rodapé Informativo Institucional do Brasa Caipira */}
+      {/* Rodapé Informativo Institucional do Brasa Caipira (Sincronizado com Fonte Única da Verdade) */}
       <footer className="mt-8 border-t border-stone-200 bg-white px-5 py-6 text-center text-xs text-stone-600">
         <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-amber-300 bg-black p-1 shadow-xs">
           <Image
-            src="/images/brand/logo-oficial.jpg"
-            alt="Brasa Caipira"
+            src={storeIdentity.logoUrl || '/images/brand/logo-oficial.jpg'}
+            alt={storeIdentity.nome || 'Brasa Caipira'}
             width={40}
             height={40}
             className="object-contain"
           />
         </div>
-        <p className="mt-3 font-bold text-stone-900">BRASA CAIPIRA</p>
-        <p className="text-[11px] text-stone-500 mt-0.5">O verdadeiro sabor da brasa que reúne a família!</p>
-        <p className="mt-2 text-[11px] text-stone-500">
-          Rua dos Crisântemos, 350 — Jd. Nova Leme — Leme/SP (Em frente ao Mercado do Angu)
+        <p className="mt-3 font-bold text-stone-900">
+          {storeIdentity.nome || 'BRASA CAIPIRA'}
         </p>
-        <div className="mt-3 flex items-center justify-center gap-4 text-xs font-semibold">
+        <p className="text-[11px] text-stone-500 mt-0.5">
+          {storeIdentity.slogan || 'O verdadeiro sabor da brasa que reúne a família!'}
+        </p>
+        <p className="mt-2 text-[11px] text-stone-500">
+          {storeIdentity.endereco}, {storeIdentity.numero} — {storeIdentity.bairro} —{' '}
+          {storeIdentity.cidadeEstado} ({storeIdentity.pontoReferencia})
+        </p>
+        <div className="mt-3 flex flex-wrap items-center justify-center gap-4 text-xs font-semibold">
           <a
-            href="https://wa.me/5519998107666"
+            href={`https://wa.me/${storeIdentity.telefoneWhatsapp || '5519998107666'}`}
             target="_blank"
             rel="noopener noreferrer"
             className="text-emerald-700 hover:underline flex items-center gap-1"
           >
-            <MessageCircle className="h-3.5 w-3.5" /> (19) 99810-7666
+            <MessageCircle className="h-3.5 w-3.5" />{' '}
+            {storeIdentity.telefoneExibicao || '(19) 99810-7666'}
           </a>
           <a
-            href="https://instagram.com/brasa.caipira"
+            href={storeIdentity.instagramUrl || 'https://instagram.com/brasa.caipira'}
             target="_blank"
             rel="noopener noreferrer"
             className="text-rose-700 hover:underline flex items-center gap-1"
           >
-            <InstagramIcon className="h-3.5 w-3.5" /> @brasa.caipira
+            <InstagramIcon className="h-3.5 w-3.5" />{' '}
+            {storeIdentity.instagramHandle || '@brasa.caipira'}
+          </a>
+          <a
+            href={
+              storeIdentity.googleMapsUrl ||
+              'https://www.google.com/maps/dir/?api=1&destination=Rua+dos+Crisantemos,+350,+Jardim+Nova+Leme,+Leme+-+SP'
+            }
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-amber-800 hover:underline flex items-center gap-1"
+          >
+            <MapPin className="h-3.5 w-3.5" /> Como Chegar (Maps)
           </a>
         </div>
       </footer>
 
-      {/* Botão Flutuante do Carrinho */}
-      {totalCartItems > 0 && (
-        <aside className="fixed bottom-4 left-0 right-0 z-30 mx-auto max-w-md px-4 md:max-w-2xl">
-          <div className="flex items-center justify-between rounded-2xl bg-stone-950 px-5 py-3.5 text-white shadow-xl shadow-stone-950/30 border border-stone-800">
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                <ShoppingCart className="h-5 w-5 text-amber-400" />
-                <span className="absolute -right-2 -top-2 flex h-4 w-4 items-center justify-center rounded-full bg-[#c21e1e] text-[10px] font-bold text-white">
-                  {totalCartItems}
-                </span>
-              </div>
-              <div className="text-xs">
-                <span className="font-bold block">
-                  {totalCartItems} {totalCartItems === 1 ? 'item' : 'itens'} no pedido
-                </span>
-                <span className="text-[11px] text-stone-400">
-                  Pronto para enviar ao WhatsApp
-                </span>
-              </div>
-            </div>
-
-            <a
-              href={`https://wa.me/5519998107666?text=${encodeURIComponent(
-                `Olá! Gostaria de fazer um pedido no Brasa Caipira:\n` +
-                  cartItemsList
-                    .map((item) => `• ${item.qty}x ${item.prod.produto}`)
-                    .join('\n')
-              )}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-emerald-500 transition active:scale-95"
-            >
-              <MessageCircle className="h-4 w-4" />
-              <span>Enviar WhatsApp</span>
-            </a>
-          </div>
-        </aside>
-      )}
+      {/* Carrinho Flutuante, Personalização de Adicionais/Variantes e Gaveta de Checkout */}
+      <CartAndCheckoutDrawer
+        cart={cartItems}
+        onUpdateCart={handleUpdateCart}
+        catalog={products}
+        storeConfig={storeIdentity}
+        isOpen={isCheckoutOpen}
+        onOpenChange={setIsCheckoutOpen}
+        customizingProduct={customizingProduct}
+        onCloseCustomize={() => setCustomizingProduct(null)}
+        showFloatingBar={true}
+      />
     </main>
   )
 }
