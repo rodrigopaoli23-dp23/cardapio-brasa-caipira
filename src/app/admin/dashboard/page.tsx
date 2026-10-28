@@ -609,11 +609,10 @@ export default function AdminDashboardPage() {
                         title="Gerenciar fotos deste produto"
                       >
                         {primaryPhoto ? (
-                          <Image
+                          <img
                             src={primaryPhoto.url}
                             alt={p.produto}
-                            fill
-                            className="object-cover"
+                            className="h-full w-full object-cover"
                           />
                         ) : (
                           <div className="flex flex-col items-center justify-center text-stone-400 group-hover:text-amber-600">
@@ -877,12 +876,11 @@ export default function AdminDashboardPage() {
                             : 'border-stone-200'
                         }`}
                       >
-                        <div className="relative h-28 w-full rounded-lg overflow-hidden">
-                          <Image
+                        <div className="relative h-28 w-full rounded-lg overflow-hidden bg-stone-100 flex items-center justify-center">
+                          <img
                             src={photo.url}
                             alt={`Foto ${index + 1}`}
-                            fill
-                            className="object-cover"
+                            className="h-full w-full object-cover"
                           />
                         </div>
 

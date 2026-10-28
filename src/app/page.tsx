@@ -484,11 +484,10 @@ export default function HomePage() {
               >
                 {primaryPhoto ? (
                   <>
-                    <Image
+                    <img
                       src={primaryPhoto.url}
                       alt={p.produto}
-                      fill
-                      className="object-cover group-hover:scale-105 transition duration-300"
+                      className="h-full w-full object-cover group-hover:scale-105 transition duration-300"
                     />
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition flex items-center justify-center">
                       <span className="opacity-0 group-hover:opacity-100 bg-black/60 text-white rounded-full p-1.5 transition">
@@ -626,12 +625,11 @@ export default function HomePage() {
             >
               <X className="h-4 w-4" />
             </button>
-            <div className="relative h-72 w-full overflow-hidden rounded-xl bg-stone-100">
-              <Image
+            <div className="relative h-72 w-full overflow-hidden rounded-xl bg-stone-100 flex items-center justify-center">
+              <img
                 src={selectedPhotoZoom.url}
                 alt={selectedPhotoZoom.title}
-                fill
-                className="object-contain"
+                className="max-h-full max-w-full object-contain"
               />
             </div>
             <div className="mt-3">
