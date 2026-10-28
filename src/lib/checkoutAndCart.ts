@@ -25,6 +25,7 @@ import {
   formatCentsToBRL,
   reaisToCents,
 } from '@/lib/money'
+import { pushNewOrderToCloud } from '@/lib/cloudSync'
 
 export const ORDERS_STORAGE_KEY = 'brasa_caipira_orders_v1'
 export const CART_STORAGE_KEY = 'brasa_caipira_cart_v1'
@@ -1131,6 +1132,7 @@ export function createOrderIdempotent(
   }
 
   const updatedOrders = [newOrder, ...currentOrders]
+  pushNewOrderToCloud(newOrder)
 
   if (params.persistToStorage !== false && typeof window !== 'undefined') {
     try {

@@ -1,4 +1,5 @@
 import { HeroBannerConfig, CarouselSlide } from '@/types/phase3.types'
+import { pushToCloud } from '@/lib/cloudSync'
 
 export const HERO_BANNER_STORAGE_KEY = 'brasa_caipira_hero_banner_v1'
 
@@ -69,6 +70,7 @@ export function loadHeroBannerConfig(): HeroBannerConfig {
 
 export function saveHeroBannerConfig(config: HeroBannerConfig): void {
   if (typeof window === 'undefined') return
+  pushToCloud(HERO_BANNER_STORAGE_KEY, config)
   try {
     window.localStorage.setItem(HERO_BANNER_STORAGE_KEY, JSON.stringify(config))
   } catch {

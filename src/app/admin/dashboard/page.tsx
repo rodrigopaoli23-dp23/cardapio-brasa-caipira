@@ -54,6 +54,12 @@ import {
   saveHeroBannerConfig,
 } from '@/lib/bannerCarouselManager'
 import { getPersistenceAuditReport } from '@/lib/securityAndAuth'
+import {
+  pushToCloud,
+  pullCloudToLocal,
+  PHOTOS_STORAGE_KEY,
+  CLOUD_DATA_EVENT,
+} from '@/lib/cloudSync'
 import ProductFormModal from '@/components/admin/ProductFormModal'
 import { CategoriesManagerSection } from '@/components/admin/CategoriesManagerSection'
 import StoreAndAgendaSection from '@/components/admin/StoreAndAgendaSection'
@@ -106,22 +112,42 @@ export default function AdminDashboardPage() {
     setTimeout(() => setToastMessage(null), 3500)
   }
 
-  // Carregar dados persistidos do armazenamento local
+  // Carregar dados persistidos e sincronizar com o Supabase Cloud
   useEffect(() => {
-    const loadedProducts = loadCatalogFromStorage()
-    setProducts(loadedProducts)
-    setCategoriesList(loadCategoriesFromStorage(loadedProducts))
-    setStoreIdentity(loadStoreIdentity())
-    setGreekPrograms(loadGreekBBQPrograms())
-    setBannerConfig(loadHeroBannerConfig())
+    const refreshLocalState = () => {
+      const loadedProducts = loadCatalogFromStorage()
+      setProducts(loadedProducts)
+      setCategoriesList(loadCategoriesFromStorage(loadedProducts))
+      setStoreIdentity(loadStoreIdentity())
+      setGreekPrograms(loadGreekBBQPrograms())
+      setBannerConfig(loadHeroBannerConfig())
 
-    try {
-      const storedPhotos = localStorage.getItem('brasa_caipira_product_photos_v1')
-      if (storedPhotos) {
-        setProductPhotos(JSON.parse(storedPhotos))
+      try {
+        const storedPhotos = localStorage.getItem(PHOTOS_STORAGE_KEY)
+        if (storedPhotos) {
+          setProductPhotos(JSON.parse(storedPhotos))
+        }
+      } catch {
+        // Fallback silencioso
       }
-    } catch {
-      // Fallback silencioso
+    }
+
+    refreshLocalState()
+
+    // Sincroniza dados da nuvem Supabase em tempo real
+    void pullCloudToLocal({ includeOrders: true }).then((changed) => {
+      if (changed) {
+        refreshLocalState()
+      }
+    })
+
+    const handleCloudDataUpdated = () => {
+      refreshLocalState()
+    }
+
+    window.addEventListener(CLOUD_DATA_EVENT, handleCloudDataUpdated)
+    return () => {
+      window.removeEventListener(CLOUD_DATA_EVENT, handleCloudDataUpdated)
     }
   }, [])
 
@@ -142,8 +168,9 @@ export default function AdminDashboardPage() {
     updated: Record<string, { url: string; isPrimary: boolean }[]>
   ) => {
     setProductPhotos(updated)
+    pushToCloud(PHOTOS_STORAGE_KEY, updated)
     try {
-      localStorage.setItem('brasa_caipira_product_photos_v1', JSON.stringify(updated))
+      localStorage.setItem(PHOTOS_STORAGE_KEY, JSON.stringify(updated))
     } catch {
       // Armazenamento local
     }

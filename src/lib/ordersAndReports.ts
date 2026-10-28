@@ -15,6 +15,7 @@ import {
   OrderRecord,
 } from '@/types/phase3.types'
 import { formatCentsToBRL } from '@/lib/money'
+import { pushOrdersToCloud } from '@/lib/cloudSync'
 
 export const ORDERS_STORAGE_KEY = 'brasa_caipira_orders_v1'
 
@@ -114,6 +115,7 @@ export function loadOrders(): OrderRecord[] {
  */
 export function saveOrders(orders: OrderRecord[]): void {
   if (typeof window === 'undefined') return
+  pushOrdersToCloud(orders)
   try {
     window.localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(orders))
   } catch {

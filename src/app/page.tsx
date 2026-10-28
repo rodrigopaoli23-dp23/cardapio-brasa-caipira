@@ -54,6 +54,11 @@ import {
 } from '@/lib/checkoutAndCart'
 import HeroBannerCarousel from '@/components/HeroBannerCarousel'
 import CartAndCheckoutDrawer from '@/components/CartAndCheckoutDrawer'
+import {
+  pullCloudToLocal,
+  PHOTOS_STORAGE_KEY,
+  CLOUD_DATA_EVENT,
+} from '@/lib/cloudSync'
 
 function InstagramIcon({ className = 'h-4 w-4' }: { className?: string }) {
   return (
@@ -100,24 +105,44 @@ export default function HomePage() {
     desc?: string | null
   } | null>(null)
 
-  // Sincronizar catálogo, categorias, loja, agenda, carrossel e fotos com o painel administrativo
+  // Sincronizar catálogo, categorias, loja, agenda, carrossel e fotos em tempo real com a Nuvem
   useEffect(() => {
-    const loadedProds = loadCatalogFromStorage()
-    setProducts(loadedProds)
-    setCategoriesList(loadCategoriesFromStorage(loadedProds))
-    setStoreIdentity(loadStoreIdentity())
-    setWeeklySchedule(loadWeeklySchedule())
-    setGreekPrograms(loadGreekBBQPrograms())
-    setBannerConfig(loadHeroBannerConfig())
-    setCartItems(loadCartFromStorage())
+    const refreshMenuState = () => {
+      const loadedProds = loadCatalogFromStorage()
+      setProducts(loadedProds)
+      setCategoriesList(loadCategoriesFromStorage(loadedProds))
+      setStoreIdentity(loadStoreIdentity())
+      setWeeklySchedule(loadWeeklySchedule())
+      setGreekPrograms(loadGreekBBQPrograms())
+      setBannerConfig(loadHeroBannerConfig())
+      setCartItems(loadCartFromStorage())
 
-    try {
-      const storedPhotos = localStorage.getItem('brasa_caipira_product_photos_v1')
-      if (storedPhotos) {
-        setProductPhotos(JSON.parse(storedPhotos))
+      try {
+        const storedPhotos = localStorage.getItem(PHOTOS_STORAGE_KEY)
+        if (storedPhotos) {
+          setProductPhotos(JSON.parse(storedPhotos))
+        }
+      } catch {
+        // Fallback silencioso
       }
-    } catch {
-      // Fallback silencioso
+    }
+
+    refreshMenuState()
+
+    // Sincroniza dados oficiais da nuvem Supabase
+    void pullCloudToLocal().then((changed) => {
+      if (changed) {
+        refreshMenuState()
+      }
+    })
+
+    const handleCloudUpdate = () => {
+      refreshMenuState()
+    }
+
+    window.addEventListener(CLOUD_DATA_EVENT, handleCloudUpdate)
+    return () => {
+      window.removeEventListener(CLOUD_DATA_EVENT, handleCloudUpdate)
     }
   }, [])
 

@@ -5,6 +5,7 @@
  */
 
 import { INITIAL_PRODUCTS } from '@/data/initialCatalog'
+import { pushToCloud } from '@/lib/cloudSync'
 import {
   CatalogItemStatus,
   CategoryRecord,
@@ -897,6 +898,7 @@ export function loadCatalogFromStorage(): ExtendedProduct[] {
 
 export function saveCatalogToStorage(products: ExtendedProduct[]): void {
   if (typeof window === 'undefined') return
+  pushToCloud(CATALOG_STORAGE_KEY, products)
   try {
     localStorage.setItem(CATALOG_STORAGE_KEY, JSON.stringify(products))
   } catch {
@@ -925,6 +927,7 @@ export function loadCategoriesFromStorage(
 
 export function saveCategoriesToStorage(categories: CategoryRecord[]): void {
   if (typeof window === 'undefined') return
+  pushToCloud(CATEGORIES_STORAGE_KEY, categories)
   try {
     localStorage.setItem(CATEGORIES_STORAGE_KEY, JSON.stringify(categories))
   } catch {

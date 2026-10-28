@@ -4,6 +4,7 @@ import {
   StoreIdentityConfig,
   WeeklyScheduleConfig,
 } from '@/types/phase3.types'
+import { pushToCloud } from '@/lib/cloudSync'
 
 export const STORE_IDENTITY_STORAGE_KEY = 'brasa_caipira_store_identity_v1'
 export const WEEKLY_SCHEDULE_STORAGE_KEY = 'brasa_caipira_weekly_schedule_v1'
@@ -648,6 +649,7 @@ export function loadStoreIdentity(): StoreIdentityConfig {
 
 export function saveStoreIdentity(config: StoreIdentityConfig): void {
   if (typeof window === 'undefined') return
+  pushToCloud(STORE_IDENTITY_STORAGE_KEY, config)
   try {
     window.localStorage.setItem(STORE_IDENTITY_STORAGE_KEY, JSON.stringify(config))
   } catch {
@@ -681,6 +683,7 @@ export function loadWeeklySchedule(): WeeklyScheduleConfig {
 
 export function saveWeeklySchedule(schedule: WeeklyScheduleConfig): void {
   if (typeof window === 'undefined') return
+  pushToCloud(WEEKLY_SCHEDULE_STORAGE_KEY, schedule)
   try {
     window.localStorage.setItem(
       WEEKLY_SCHEDULE_STORAGE_KEY,
@@ -708,6 +711,7 @@ export function loadGreekBBQPrograms(): GreekBBQProgram[] {
 
 export function saveGreekBBQPrograms(programs: GreekBBQProgram[]): void {
   if (typeof window === 'undefined') return
+  pushToCloud(GREEK_BBQ_STORAGE_KEY, programs)
   try {
     window.localStorage.setItem(GREEK_BBQ_STORAGE_KEY, JSON.stringify(programs))
   } catch {
