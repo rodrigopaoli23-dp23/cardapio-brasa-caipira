@@ -58,6 +58,8 @@ import {
   pullCloudToLocal,
   PHOTOS_STORAGE_KEY,
   CLOUD_DATA_EVENT,
+  subscribeToCloudChanges,
+  CloudSyncSnapshot,
 } from '@/lib/cloudSync'
 
 function InstagramIcon({ className = 'h-4 w-4' }: { className?: string }) {
@@ -107,7 +109,8 @@ export default function HomePage() {
 
   // Sincronizar catálogo, categorias, loja, agenda, carrossel e fotos em tempo real com a Nuvem
   useEffect(() => {
-    const refreshMenuState = () => {
+    // 1. Carregamento inicial rápido do cache local (evita tela branca)
+    const refreshMenuStateFromStorage = () => {
       const loadedProds = loadCatalogFromStorage()
       setProducts(loadedProds)
       setCategoriesList(loadCategoriesFromStorage(loadedProds))
@@ -127,22 +130,93 @@ export default function HomePage() {
       }
     }
 
-    refreshMenuState()
+    refreshMenuStateFromStorage()
 
-    // Sincroniza dados oficiais da nuvem Supabase
-    void pullCloudToLocal().then((changed) => {
-      if (changed) {
-        refreshMenuState()
+    // 2. Hidratação direta da Nuvem (em memória React) — sem depender do localStorage
+    const hydrateFromSnapshot = (snapshot: CloudSyncSnapshot) => {
+      if (snapshot.catalog && Array.isArray(snapshot.catalog) && snapshot.catalog.length > 0) {
+        setProducts(snapshot.catalog as ExtendedProduct[])
+        if (!snapshot.categories) {
+          setCategoriesList(loadCategoriesFromStorage(snapshot.catalog as ExtendedProduct[]))
+        }
+      }
+      if (snapshot.categories && Array.isArray(snapshot.categories) && snapshot.categories.length > 0) {
+        setCategoriesList(snapshot.categories as CategoryRecord[])
+      }
+      if (snapshot.photos && typeof snapshot.photos === 'object') {
+        setProductPhotos(snapshot.photos)
+      }
+      if (snapshot.storeIdentity && typeof snapshot.storeIdentity === 'object') {
+        setStoreIdentity(snapshot.storeIdentity as StoreIdentityConfig)
+      }
+      if (snapshot.weeklySchedule && typeof snapshot.weeklySchedule === 'object') {
+        setWeeklySchedule(snapshot.weeklySchedule as WeeklyScheduleConfig)
+      }
+      if (snapshot.greekPrograms && Array.isArray(snapshot.greekPrograms)) {
+        setGreekPrograms(snapshot.greekPrograms as GreekBBQProgram[])
+      }
+      if (snapshot.bannerConfig && typeof snapshot.bannerConfig === 'object') {
+        setBannerConfig(snapshot.bannerConfig as HeroBannerConfig)
+      }
+    }
+
+    const fetchLatestCloud = async () => {
+      const res = await pullCloudToLocal()
+      if (res.success && res.snapshot) {
+        hydrateFromSnapshot(res.snapshot)
+      }
+    }
+
+    // Busca imediata na inicialização
+    void fetchLatestCloud()
+
+    // 3. Supabase Realtime (WebSocket): recebe atualizações instantâneas de qualquer aparelho
+    const unsubscribeRealtime = subscribeToCloudChanges((key, data) => {
+      if (key === 'brasa_caipira_catalog_v1' && Array.isArray(data)) {
+        setProducts(data as ExtendedProduct[])
+      } else if (key === 'brasa_caipira_categories_v1' && Array.isArray(data)) {
+        setCategoriesList(data as CategoryRecord[])
+      } else if (key === PHOTOS_STORAGE_KEY && data && typeof data === 'object') {
+        setProductPhotos(data as Record<string, { url: string; isPrimary: boolean }[]>)
+      } else if (key === 'brasa_caipira_store_identity_v1' && data) {
+        setStoreIdentity(data as StoreIdentityConfig)
+      } else if (key === 'brasa_caipira_weekly_schedule_v1' && data) {
+        setWeeklySchedule(data as WeeklyScheduleConfig)
+      } else if (key === 'brasa_caipira_greek_bbq_v1' && Array.isArray(data)) {
+        setGreekPrograms(data as GreekBBQProgram[])
+      } else if (key === 'brasa_caipira_hero_banner_v1' && data) {
+        setBannerConfig(data as HeroBannerConfig)
       }
     })
 
-    const handleCloudUpdate = () => {
-      refreshMenuState()
+    // 4. Sincronização multi-aparelho ao desbloquear celular ou alternar abas
+    const handleVisibilityOrFocus = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        void fetchLatestCloud()
+      }
     }
 
-    window.addEventListener(CLOUD_DATA_EVENT, handleCloudUpdate)
+    window.addEventListener('visibilitychange', handleVisibilityOrFocus)
+    window.addEventListener('focus', handleVisibilityOrFocus)
+
+    // 5. Polling preventivo a cada 20s para conexões com instabilidade de rede móvel
+    const intervalId = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        void fetchLatestCloud()
+      }
+    }, 20000)
+
+    const handleCloudEvent = () => {
+      void fetchLatestCloud()
+    }
+    window.addEventListener(CLOUD_DATA_EVENT, handleCloudEvent)
+
     return () => {
-      window.removeEventListener(CLOUD_DATA_EVENT, handleCloudUpdate)
+      unsubscribeRealtime()
+      window.removeEventListener('visibilitychange', handleVisibilityOrFocus)
+      window.removeEventListener('focus', handleVisibilityOrFocus)
+      window.removeEventListener(CLOUD_DATA_EVENT, handleCloudEvent)
+      clearInterval(intervalId)
     }
   }, [])
 

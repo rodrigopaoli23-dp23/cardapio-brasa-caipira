@@ -240,14 +240,25 @@ async function flushKey(key: string): Promise<void> {
 }
 
 /**
- * Agenda o envio de uma chave para a nuvem (debounce de 400 ms por chave).
- * Seguro para chamar em qualquer ambiente: sem Supabase configurado não faz nada.
+ * Agenda ou executa imediatamente o envio de uma chave para a nuvem.
+ * Opção immediate: true ignora o debounce e grava direto (ideal para salvar preço, fotos e status).
  */
-export function pushToCloud(key: string, value: unknown): void {
+export function pushToCloud(
+  key: string,
+  value: unknown,
+  options?: { immediate?: boolean }
+): void {
   if (!isCloudEnabled()) return
   pendingValues.set(key, value)
   const existing = pendingTimers.get(key)
   if (existing) clearTimeout(existing)
+
+  if (options?.immediate) {
+    pendingTimers.delete(key)
+    void flushKey(key)
+    return
+  }
+
   pendingTimers.set(
     key,
     setTimeout(() => {
@@ -255,6 +266,17 @@ export function pushToCloud(key: string, value: unknown): void {
       void flushKey(key)
     }, 400)
   )
+}
+
+/** Envia imediatamente todas as alterações pendentes para a nuvem. */
+export async function flushPendingCloudWrites(): Promise<void> {
+  const keys = Array.from(pendingValues.keys())
+  for (const k of keys) {
+    const timer = pendingTimers.get(k)
+    if (timer) clearTimeout(timer)
+    pendingTimers.delete(k)
+    await flushKey(k)
+  }
 }
 
 /** Registra um novo pedido feito pelo cliente (insert simples — permitido para visitantes). */
@@ -296,16 +318,98 @@ export function pushOrdersToCloud(orders: { id: string; updatedAt?: string }[]):
 }
 
 // ==============================================================================
-// LEITURA (nuvem -> localStorage)
+// LEITURA & SINCRONIZAÇÃO EM TEMPO REAL (nuvem -> aparelhos de todos os clientes)
 // ==============================================================================
 
+export interface CloudSyncSnapshot {
+  catalog: any[] | null
+  categories: any[] | null
+  storeIdentity: any | null
+  weeklySchedule: any | null
+  greekPrograms: any[] | null
+  bannerConfig: any | null
+  photos: Record<string, { url: string; isPrimary: boolean }[]> | null
+  orders?: any[] | null
+}
+
+export interface PullCloudResult {
+  changed: boolean
+  success: boolean
+  snapshot: CloudSyncSnapshot
+}
+
 /**
- * Baixa a versão oficial da nuvem e grava no localStorage do aparelho.
- * Retorna `true` se algum dado local foi alterado.
+ * Assina mudanças em tempo real no Supabase (WebSocket Realtime na tabela store_settings).
+ * Quando o administrador altera um preço ou foto no computador, o evento é emitido
+ * e recebido simultaneamente em todos os celulares conectados (esposa, filho, clientes).
  */
-export async function pullCloudToLocal(options: { includeOrders?: boolean } = {}): Promise<boolean> {
-  if (!isCloudEnabled()) return false
+export function subscribeToCloudChanges(
+  onUpdate: (key: string, data: unknown) => void
+): () => void {
+  if (!isCloudEnabled()) return () => {}
+
+  let disposed = false
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let channelRef: any = null
+
+  void getCloudClient().then((supabase) => {
+    if (disposed) return
+
+    const channel = supabase
+      .channel('brasa_store_settings_realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: SETTINGS_TABLE },
+        (payload: any) => {
+          const newRecord = (payload?.new || {}) as { key?: string; data?: unknown }
+          if (newRecord?.key && newRecord?.data !== undefined) {
+            try {
+              window.localStorage.setItem(newRecord.key, JSON.stringify(newRecord.data))
+            } catch {
+              // Armazenamento local
+            }
+            onUpdate(newRecord.key, newRecord.data)
+            emit(CLOUD_DATA_EVENT, { key: newRecord.key, data: newRecord.data })
+          }
+        }
+      )
+      .subscribe()
+
+    channelRef = channel
+  })
+
+  return () => {
+    disposed = true
+    if (channelRef) {
+      void getCloudClient().then((supabase) => {
+        if (channelRef) supabase.removeChannel(channelRef)
+      })
+    }
+  }
+}
+
+/**
+ * Baixa a versão oficial da nuvem e hidrata tanto a memória React quanto o cache local.
+ * Retorna o snapshot completo para evitar qualquer dependência de timing no localStorage.
+ */
+export async function pullCloudToLocal(
+  options: { includeOrders?: boolean } = {}
+): Promise<PullCloudResult> {
+  const emptySnapshot: CloudSyncSnapshot = {
+    catalog: null,
+    categories: null,
+    storeIdentity: null,
+    weeklySchedule: null,
+    greekPrograms: null,
+    bannerConfig: null,
+    photos: null,
+  }
+
+  if (!isCloudEnabled()) {
+    return { changed: false, success: false, snapshot: emptySnapshot }
+  }
   let changed = false
+  const snapshot: CloudSyncSnapshot = { ...emptySnapshot }
 
   try {
     const supabase = await getCloudClient()
@@ -317,6 +421,24 @@ export async function pullCloudToLocal(options: { includeOrders?: boolean } = {}
 
     for (const row of data || []) {
       if (row?.data === null || row?.data === undefined) continue
+
+      // Hidratação direta do snapshot em memória
+      if (row.key === 'brasa_caipira_catalog_v1' && Array.isArray(row.data)) {
+        snapshot.catalog = row.data
+      } else if (row.key === 'brasa_caipira_categories_v1' && Array.isArray(row.data)) {
+        snapshot.categories = row.data
+      } else if (row.key === 'brasa_caipira_store_identity_v1' && row.data) {
+        snapshot.storeIdentity = row.data
+      } else if (row.key === 'brasa_caipira_weekly_schedule_v1' && row.data) {
+        snapshot.weeklySchedule = row.data
+      } else if (row.key === 'brasa_caipira_greek_bbq_v1' && Array.isArray(row.data)) {
+        snapshot.greekPrograms = row.data
+      } else if (row.key === 'brasa_caipira_hero_banner_v1' && row.data) {
+        snapshot.bannerConfig = row.data
+      } else if (row.key === PHOTOS_STORAGE_KEY && row.data) {
+        snapshot.photos = row.data as Record<string, { url: string; isPrimary: boolean }[]>
+      }
+
       const serialized = JSON.stringify(row.data)
       try {
         if (window.localStorage.getItem(row.key) !== serialized) {
@@ -324,7 +446,7 @@ export async function pullCloudToLocal(options: { includeOrders?: boolean } = {}
           changed = true
         }
       } catch {
-        // Ignora quota
+        // Ignora quota do navegador
       }
     }
 
@@ -360,6 +482,7 @@ export async function pullCloudToLocal(options: { includeOrders?: boolean } = {}
         const list = Array.from(merged.values()).sort(
           (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
         )
+        snapshot.orders = list
         const serialized = JSON.stringify(list)
         try {
           if (window.localStorage.getItem(ORDERS_CLOUD_LOCAL_KEY) !== serialized) {
@@ -371,14 +494,15 @@ export async function pullCloudToLocal(options: { includeOrders?: boolean } = {}
         }
       }
     }
+
+    return { changed, success: true, snapshot }
   } catch (err) {
     emit(CLOUD_STATUS_EVENT, {
       state: 'error',
       message: `Não foi possível carregar os dados da nuvem: ${describeError(err)}`,
     } satisfies CloudStatus)
+    return { changed: false, success: false, snapshot }
   }
-
-  return changed
 }
 
 // ==============================================================================

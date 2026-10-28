@@ -59,6 +59,8 @@ import {
   pullCloudToLocal,
   PHOTOS_STORAGE_KEY,
   CLOUD_DATA_EVENT,
+  subscribeToCloudChanges,
+  CloudSyncSnapshot,
 } from '@/lib/cloudSync'
 import ProductFormModal from '@/components/admin/ProductFormModal'
 import { CategoriesManagerSection } from '@/components/admin/CategoriesManagerSection'
@@ -134,19 +136,73 @@ export default function AdminDashboardPage() {
 
     refreshLocalState()
 
-    // Sincroniza dados da nuvem Supabase em tempo real
-    void pullCloudToLocal({ includeOrders: true }).then((changed) => {
-      if (changed) {
-        refreshLocalState()
+    const hydrateFromSnapshot = (snapshot: CloudSyncSnapshot) => {
+      if (snapshot.catalog && Array.isArray(snapshot.catalog) && snapshot.catalog.length > 0) {
+        setProducts(snapshot.catalog as ExtendedProduct[])
+        if (!snapshot.categories) {
+          setCategoriesList(loadCategoriesFromStorage(snapshot.catalog as ExtendedProduct[]))
+        }
+      }
+      if (snapshot.categories && Array.isArray(snapshot.categories) && snapshot.categories.length > 0) {
+        setCategoriesList(snapshot.categories as CategoryRecord[])
+      }
+      if (snapshot.photos && typeof snapshot.photos === 'object') {
+        setProductPhotos(snapshot.photos)
+      }
+      if (snapshot.storeIdentity && typeof snapshot.storeIdentity === 'object') {
+        setStoreIdentity(snapshot.storeIdentity as StoreIdentityConfig)
+      }
+      if (snapshot.greekPrograms && Array.isArray(snapshot.greekPrograms)) {
+        setGreekPrograms(snapshot.greekPrograms as GreekBBQProgram[])
+      }
+      if (snapshot.bannerConfig && typeof snapshot.bannerConfig === 'object') {
+        setBannerConfig(snapshot.bannerConfig as HeroBannerConfig)
+      }
+    }
+
+    const fetchLatestCloud = async () => {
+      const res = await pullCloudToLocal({ includeOrders: true })
+      if (res.success && res.snapshot) {
+        hydrateFromSnapshot(res.snapshot)
+      }
+    }
+
+    void fetchLatestCloud()
+
+    const unsubscribeRealtime = subscribeToCloudChanges((key, data) => {
+      if (key === 'brasa_caipira_catalog_v1' && Array.isArray(data)) {
+        setProducts(data as ExtendedProduct[])
+      } else if (key === 'brasa_caipira_categories_v1' && Array.isArray(data)) {
+        setCategoriesList(data as CategoryRecord[])
+      } else if (key === PHOTOS_STORAGE_KEY && data && typeof data === 'object') {
+        setProductPhotos(data as Record<string, { url: string; isPrimary: boolean }[]>)
+      } else if (key === 'brasa_caipira_store_identity_v1' && data) {
+        setStoreIdentity(data as StoreIdentityConfig)
+      } else if (key === 'brasa_caipira_greek_bbq_v1' && Array.isArray(data)) {
+        setGreekPrograms(data as GreekBBQProgram[])
+      } else if (key === 'brasa_caipira_hero_banner_v1' && data) {
+        setBannerConfig(data as HeroBannerConfig)
       }
     })
 
+    const handleVisibilityOrFocus = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        void fetchLatestCloud()
+      }
+    }
+
+    window.addEventListener('visibilitychange', handleVisibilityOrFocus)
+    window.addEventListener('focus', handleVisibilityOrFocus)
+
     const handleCloudDataUpdated = () => {
-      refreshLocalState()
+      void fetchLatestCloud()
     }
 
     window.addEventListener(CLOUD_DATA_EVENT, handleCloudDataUpdated)
     return () => {
+      unsubscribeRealtime()
+      window.removeEventListener('visibilitychange', handleVisibilityOrFocus)
+      window.removeEventListener('focus', handleVisibilityOrFocus)
       window.removeEventListener(CLOUD_DATA_EVENT, handleCloudDataUpdated)
     }
   }, [])
@@ -163,12 +219,12 @@ export default function AdminDashboardPage() {
     saveCategoriesToStorage(updated)
   }
 
-  // Persistência Real: Salvar fotos sempre que houver upload, exclusão ou troca de principal
+  // Persistência Real: Salvar fotos imediatamente na nuvem
   const savePhotosPersistently = (
     updated: Record<string, { url: string; isPrimary: boolean }[]>
   ) => {
     setProductPhotos(updated)
-    pushToCloud(PHOTOS_STORAGE_KEY, updated)
+    pushToCloud(PHOTOS_STORAGE_KEY, updated, { immediate: true })
     try {
       localStorage.setItem(PHOTOS_STORAGE_KEY, JSON.stringify(updated))
     } catch {

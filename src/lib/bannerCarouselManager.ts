@@ -70,7 +70,7 @@ export function loadHeroBannerConfig(): HeroBannerConfig {
 
 export function saveHeroBannerConfig(config: HeroBannerConfig): void {
   if (typeof window === 'undefined') return
-  pushToCloud(HERO_BANNER_STORAGE_KEY, config)
+  pushToCloud(HERO_BANNER_STORAGE_KEY, config, { immediate: true })
   try {
     window.localStorage.setItem(HERO_BANNER_STORAGE_KEY, JSON.stringify(config))
   } catch {

@@ -649,7 +649,7 @@ export function loadStoreIdentity(): StoreIdentityConfig {
 
 export function saveStoreIdentity(config: StoreIdentityConfig): void {
   if (typeof window === 'undefined') return
-  pushToCloud(STORE_IDENTITY_STORAGE_KEY, config)
+  pushToCloud(STORE_IDENTITY_STORAGE_KEY, config, { immediate: true })
   try {
     window.localStorage.setItem(STORE_IDENTITY_STORAGE_KEY, JSON.stringify(config))
   } catch {
@@ -683,7 +683,7 @@ export function loadWeeklySchedule(): WeeklyScheduleConfig {
 
 export function saveWeeklySchedule(schedule: WeeklyScheduleConfig): void {
   if (typeof window === 'undefined') return
-  pushToCloud(WEEKLY_SCHEDULE_STORAGE_KEY, schedule)
+  pushToCloud(WEEKLY_SCHEDULE_STORAGE_KEY, schedule, { immediate: true })
   try {
     window.localStorage.setItem(
       WEEKLY_SCHEDULE_STORAGE_KEY,
@@ -711,7 +711,7 @@ export function loadGreekBBQPrograms(): GreekBBQProgram[] {
 
 export function saveGreekBBQPrograms(programs: GreekBBQProgram[]): void {
   if (typeof window === 'undefined') return
-  pushToCloud(GREEK_BBQ_STORAGE_KEY, programs)
+  pushToCloud(GREEK_BBQ_STORAGE_KEY, programs, { immediate: true })
   try {
     window.localStorage.setItem(GREEK_BBQ_STORAGE_KEY, JSON.stringify(programs))
   } catch {
