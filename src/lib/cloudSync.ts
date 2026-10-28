@@ -15,11 +15,12 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 
-export const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+export const SUPABASE_URL =
+  process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://gbaefutcpkplpggtkzxu.supabase.co'
 export const SUPABASE_KEY =
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
-  ''
+  'sb_publishable_nMJT4dF_UqZ-hzQ46VxOOw_j6_aWMtB'
 
 export const PHOTOS_STORAGE_KEY = 'brasa_caipira_product_photos_v1'
 export const ORDERS_CLOUD_LOCAL_KEY = 'brasa_caipira_orders_v1'

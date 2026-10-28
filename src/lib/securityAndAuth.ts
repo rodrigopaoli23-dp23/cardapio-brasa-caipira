@@ -547,8 +547,18 @@ export function getPersistenceAuditReport(
   envOverride?: Record<string, string | undefined>
 ): PersistenceAuditReport {
   const env = envOverride ?? (typeof process !== 'undefined' ? process.env : {})
-  const supabaseUrl = (env.NEXT_PUBLIC_SUPABASE_URL || '').trim()
-  const supabaseAnonKey = (env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '').trim()
+  const supabaseUrl = (
+    env.NEXT_PUBLIC_SUPABASE_URL !== undefined
+      ? env.NEXT_PUBLIC_SUPABASE_URL
+      : 'https://gbaefutcpkplpggtkzxu.supabase.co'
+  ).trim()
+  const supabaseAnonKey = (
+    env.NEXT_PUBLIC_SUPABASE_ANON_KEY !== undefined
+      ? env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+      : env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY !== undefined
+      ? env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+      : 'sb_publishable_nMJT4dF_UqZ-hzQ46VxOOw_j6_aWMtB'
+  ).trim()
 
   const isSupabaseConfigured = Boolean(
     supabaseUrl.length > 0 &&
