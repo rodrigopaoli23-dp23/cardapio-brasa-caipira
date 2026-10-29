@@ -24,7 +24,7 @@ export const INITIAL_PRODUCTS: InitialProduct[] = [
     "descricao": "Espetinho preparado na brasa",
     "ingredientes": "Carne bovina",
     "unidade": "espeto",
-    "preco": null,
+    "preco": 12.0,
     "dia_periodo": "Quarta a sábado",
     "evidencia": "Histórico / conferir ativo",
     "observacoes": null,

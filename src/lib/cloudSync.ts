@@ -412,14 +412,39 @@ export async function pullCloudToLocal(
   const snapshot: CloudSyncSnapshot = { ...emptySnapshot }
 
   try {
-    const supabase = await getCloudClient()
-    const { data, error } = await supabase
-      .from(SETTINGS_TABLE)
-      .select('key,data')
-      .in('key', SYNCED_KEYS as unknown as string[])
-    if (error) throw error
+    let rows: { key: string; data: unknown }[] | null = null
 
-    for (const row of data || []) {
+    // 1. Tenta carregar via fetch nativo direto à API REST do Supabase (ultra-rápido, sem cookies, imune ao Safari ITP)
+    try {
+      const keysParam = (SYNCED_KEYS as readonly string[]).join(',')
+      const restUrl = `${SUPABASE_URL}/rest/v1/${SETTINGS_TABLE}?select=key,data&key=in.(${keysParam})`
+      const resp = await fetch(restUrl, {
+        headers: {
+          apikey: SUPABASE_KEY,
+          Authorization: `Bearer ${SUPABASE_KEY}`,
+        },
+      })
+      if (resp.ok) {
+        const json = await resp.json()
+        if (Array.isArray(json) && json.length > 0) {
+          rows = json
+        }
+      }
+    } catch {
+      // Fallback para o client SDK se o fetch falhar
+    }
+
+    if (!rows) {
+      const supabase = await getCloudClient()
+      const { data, error } = await supabase
+        .from(SETTINGS_TABLE)
+        .select('key,data')
+        .in('key', SYNCED_KEYS as unknown as string[])
+      if (error) throw error
+      rows = data || []
+    }
+
+    for (const row of rows || []) {
       if (row?.data === null || row?.data === undefined) continue
 
       // Hidratação direta do snapshot em memória
@@ -451,6 +476,7 @@ export async function pullCloudToLocal(
     }
 
     if (options.includeOrders) {
+      const supabase = await getCloudClient()
       const { data: orderRows, error: ordersError } = await supabase
         .from(SETTINGS_TABLE)
         .select('key,data')
