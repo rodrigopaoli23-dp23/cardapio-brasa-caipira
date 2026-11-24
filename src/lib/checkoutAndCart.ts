@@ -16,7 +16,9 @@ import {
   InitialProduct,
   OrderItemSnapshot,
   OrderModality,
+  OrderPaymentInfo,
   OrderRecord,
+  PaymentMethod,
   ProductAddonOption,
 } from '@/types/phase3.types'
 import {
@@ -388,6 +390,7 @@ export interface CustomerCheckoutInput {
   referencia?: string
   numeroMesa?: string
   observacoesCliente?: string
+  pagamento?: OrderPaymentInfo
 }
 
 export interface CustomerCheckoutValidationResult {
@@ -408,6 +411,7 @@ export interface CustomerCheckoutValidationResult {
     }
     numeroMesa?: string
     observacoesCliente?: string
+    pagamento?: OrderPaymentInfo
   }
 }
 
@@ -490,6 +494,20 @@ export function validateCustomerCheckoutData(
     }
   }
 
+  if (input?.pagamento) {
+    const validMethods: PaymentMethod[] = [
+      'dinheiro',
+      'pix',
+      'cartao_debito',
+      'cartao_credito',
+    ]
+    if (!validMethods.includes(input.pagamento.metodo)) {
+      const msg = 'Selecione uma forma de pagamento válida (dinheiro, pix ou cartão).'
+      errors.push(msg)
+      fieldErrors.formaPagamento = msg
+    }
+  }
+
   const valid = errors.length === 0
 
   if (!valid) {
@@ -523,6 +541,7 @@ export function validateCustomerCheckoutData(
         : {}),
       ...(modalidade === 'mesa' ? { numeroMesa } : {}),
       ...(observacoesCliente ? { observacoesCliente } : {}),
+      ...(input?.pagamento ? { pagamento: input.pagamento } : {}),
     },
   }
 }
@@ -946,6 +965,24 @@ export function buildStructuredWhatsAppOrderMessage(order: OrderRecord): string 
 
   lines.push(`🔥 *TOTAL GERAL: ${formatCentsToBRL(order.totalCents)}*`)
 
+  if (order.pagamento?.metodo) {
+    lines.push('━━━━━━━━━━━━━━━━━━━━━━')
+    let desc = ''
+    if (order.pagamento.metodo === 'cartao_credito') {
+      desc = 'Cartão de Crédito (levar maquininha)'
+    } else if (order.pagamento.metodo === 'cartao_debito') {
+      desc = 'Cartão de Débito (levar maquininha)'
+    } else if (order.pagamento.metodo === 'pix') {
+      desc = 'PIX'
+    } else if (order.pagamento.metodo === 'dinheiro') {
+      desc = 'Dinheiro'
+      if (order.pagamento.trocoPara && order.pagamento.trocoPara.trim()) {
+        desc += ` (${order.pagamento.trocoPara.trim()})`
+      }
+    }
+    lines.push(`💳 *Forma de Pagamento:* ${desc}`)
+  }
+
   if (order.observacoesCliente && order.observacoesCliente.trim()) {
     lines.push('━━━━━━━━━━━━━━━━━━━━━━')
     lines.push(`📝 *Observações do cliente:* ${order.observacoesCliente.trim()}`)
@@ -981,6 +1018,7 @@ function computeOrderFingerprint(params: {
   modalidade: OrderModality
   numeroMesa?: string
   enderecoEntrega?: OrderRecord['enderecoEntrega']
+  pagamento?: OrderPaymentInfo
   itens: OrderItemSnapshot[]
   totalCents: number
 }): string {
@@ -1002,11 +1040,16 @@ function computeOrderFingerprint(params: {
       ? `mesa-${params.numeroMesa || ''}`
       : 'retirada'
 
+  const payPart = params.pagamento?.metodo
+    ? `${params.pagamento.metodo}:${params.pagamento.trocoPara || ''}`
+    : 'none'
+
   return [
     params.clienteNome.trim().toLowerCase(),
     params.clienteTelefone.replace(/\D/g, ''),
     params.modalidade,
     locPart.toLowerCase(),
+    payPart.toLowerCase(),
     itemsPart,
     String(params.totalCents),
   ].join('::')
@@ -1023,6 +1066,7 @@ export interface CreateOrderIdempotentParams {
   taxaEntregaCents: number
   totalCents: number
   observacoesCliente?: string
+  pagamento?: OrderPaymentInfo
   existingOrders?: OrderRecord[]
   now?: Date
   idempotencyWindowMs?: number
@@ -1072,6 +1116,7 @@ export function createOrderIdempotent(
     modalidade: params.modalidade,
     numeroMesa: params.numeroMesa,
     enderecoEntrega: params.enderecoEntrega,
+    pagamento: params.pagamento,
     itens: params.itens,
     totalCents: params.totalCents,
   })
@@ -1088,6 +1133,7 @@ export function createOrderIdempotent(
       modalidade: existing.modalidade,
       numeroMesa: existing.numeroMesa,
       enderecoEntrega: existing.enderecoEntrega,
+      pagamento: existing.pagamento,
       itens: existing.itens,
       totalCents: existing.totalCents,
     })
@@ -1127,6 +1173,7 @@ export function createOrderIdempotent(
     ...(params.observacoesCliente?.trim()
       ? { observacoesCliente: params.observacoesCliente.trim() }
       : {}),
+    ...(params.pagamento ? { pagamento: params.pagamento } : {}),
     status: 'aguardando_confirmacao',
     whatsappOpenedAt: nowIso,
   }

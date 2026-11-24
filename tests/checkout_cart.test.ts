@@ -449,5 +449,78 @@ describe('Agente 4 — Carrinho, Modalidades e Checkout', () => {
       expect(secondAttempt.order.numeroPedido).toBe('#BC-1001')
       expect(secondAttempt.orders).toHaveLength(1)
     })
+
+    it('formata corretamente as diferentes formas de pagamento na mensagem do WhatsApp', () => {
+      const fixedNow = new Date('2026-10-26T22:00:00.000Z')
+
+      // Pagamento com Cartão de Crédito
+      const { order: orderCredito } = createOrderIdempotent({
+        clienteNome: 'João Silva',
+        clienteTelefone: '(19) 99810-7666',
+        modalidade: 'delivery',
+        enderecoEntrega: {
+          rua: 'Rua das Flores',
+          numero: '120',
+          bairro: 'Jd. Nova Leme',
+        },
+        pagamento: {
+          metodo: 'cartao_credito',
+          detalhe: 'Cartão de Crédito (levar maquininha)',
+        },
+        itens: [
+          {
+            id: 'item-1',
+            codigo: 'BC-001',
+            produto: 'Espetinho bovino',
+            quantidade: 2,
+            precoUnitarioCents: 1200,
+            adicionais: [],
+            subtotalItemCents: 2400,
+          },
+        ],
+        subtotalCents: 2400,
+        taxaEntregaCents: 500,
+        totalCents: 2900,
+        now: fixedNow,
+        persistToStorage: false,
+      })
+
+      const msgCredito = buildStructuredWhatsAppOrderMessage(orderCredito)
+      expect(msgCredito).toContain(
+        '💳 *Forma de Pagamento:* Cartão de Crédito (levar maquininha)'
+      )
+
+      // Pagamento com Dinheiro e Troco
+      const { order: orderDinheiro } = createOrderIdempotent({
+        clienteNome: 'Maria Santos',
+        clienteTelefone: '(19) 99810-7666',
+        modalidade: 'retirada',
+        pagamento: {
+          metodo: 'dinheiro',
+          trocoPara: 'Troco para R$ 50,00',
+        },
+        itens: [
+          {
+            id: 'item-2',
+            codigo: 'BC-016',
+            produto: 'Empada de frango',
+            quantidade: 1,
+            precoUnitarioCents: 800,
+            adicionais: [],
+            subtotalItemCents: 800,
+          },
+        ],
+        subtotalCents: 800,
+        taxaEntregaCents: 0,
+        totalCents: 800,
+        now: fixedNow,
+        persistToStorage: false,
+      })
+
+      const msgDinheiro = buildStructuredWhatsAppOrderMessage(orderDinheiro)
+      expect(msgDinheiro).toContain(
+        '💳 *Forma de Pagamento:* Dinheiro (Troco para R$ 50,00)'
+      )
+    })
   })
 })

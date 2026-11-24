@@ -373,14 +373,6 @@ export default function HomePage() {
               </div>
             </div>
           </div>
-
-          <Link
-            href="/admin/login"
-            className="flex items-center gap-1.5 rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-xs font-bold text-stone-700 hover:border-orange-500 hover:text-orange-700 hover:bg-orange-50/50 transition shadow-xs"
-          >
-            <Shield className="h-3.5 w-3.5 text-orange-600" />
-            <span>Admin</span>
-          </Link>
         </div>
 
         {/* Informações Oficiais de Atendimento e Rota Google Maps */}
@@ -771,6 +763,18 @@ export default function HomePage() {
           >
             <MapPin className="h-3.5 w-3.5" /> Como Chegar (Maps)
           </a>
+        </div>
+
+        {/* Acesso administrativo discreto via três pontinhos no rodapé */}
+        <div className="mt-4 flex justify-center">
+          <Link
+            href="/admin/login"
+            className="text-stone-300 hover:text-stone-500 transition px-3 py-1 text-sm tracking-widest select-none font-bold"
+            title="Acesso restrito"
+            aria-label="Acesso administrativo"
+          >
+            •••
+          </Link>
         </div>
       </footer>
 

@@ -17,12 +17,17 @@ import {
   FileText,
   ChevronRight,
   ShieldCheck,
+  CreditCard,
+  Banknote,
+  QrCode,
 } from 'lucide-react'
 import {
   ExtendedProduct,
   OrderItemSnapshot,
   OrderModality,
+  OrderPaymentInfo,
   OrderRecord,
+  PaymentMethod,
   ProductAddonOption,
   StoreIdentityConfig,
 } from '@/types/phase3.types'
@@ -340,18 +345,18 @@ export function CartAndCheckoutDrawer({
     }
   }
 
-  // Modalidades ativas configuradas na loja
+  // Modalidades ativas configuradas na loja (Mesa removida conforme solicitação do cliente)
   const activeModalities = useMemo(() => {
     const m = storeConfig?.modalidadesAtivas || {
       delivery: true,
-      mesa: true,
+      mesa: false,
       retirada: true,
     }
     const list: OrderModality[] = []
     if (m.delivery) list.push('delivery')
     if (m.retirada) list.push('retirada')
-    if (m.mesa) list.push('mesa')
-    return list.length > 0 ? list : (['retirada'] as OrderModality[])
+    // Mesa foi desativada permanentemente do cardápio digital
+    return list.length > 0 ? list : (['delivery'] as OrderModality[])
   }, [storeConfig])
 
   const [modalidade, setModalidade] = useState<OrderModality>(
@@ -360,7 +365,7 @@ export function CartAndCheckoutDrawer({
 
   useEffect(() => {
     if (!activeModalities.includes(modalidade)) {
-      setModalidade(activeModalities[0] || 'retirada')
+      setModalidade(activeModalities[0] || 'delivery')
     }
   }, [activeModalities, modalidade])
 
@@ -374,6 +379,12 @@ export function CartAndCheckoutDrawer({
   const [referencia, setReferencia] = useState('')
   const [numeroMesa, setNumeroMesa] = useState('')
   const [observacoesCliente, setObservacoesCliente] = useState('')
+
+  // Forma de pagamento
+  const [formaPagamento, setFormaPagamento] = useState<'dinheiro' | 'pix' | 'cartao' | ''>('')
+  const [tipoCartao, setTipoCartao] = useState<'debito' | 'credito'>('debito')
+  const [precisaTroco, setPrecisaTroco] = useState(false)
+  const [trocoPara, setTrocoPara] = useState('')
 
   const [validationErrors, setValidationErrors] = useState<string[]>([])
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
@@ -427,7 +438,45 @@ export function CartAndCheckoutDrawer({
     setValidationErrors([])
     setFieldErrors({})
 
-    // 1. Valida dados obrigatórios do cliente conforme a modalidade
+    // 1. Valida seleção de forma de pagamento obrigatória
+    if (!formaPagamento) {
+      setValidationErrors(['Selecione a forma de pagamento (Dinheiro, Pix ou Cartão).'])
+      setFieldErrors({ formaPagamento: 'Selecione a forma de pagamento.' })
+      return
+    }
+
+    if (formaPagamento === 'dinheiro' && precisaTroco && !trocoPara.trim()) {
+      setValidationErrors([
+        'Informe para quanto você precisa de troco (Ex: R$ 50,00 ou R$ 100,00).',
+      ])
+      setFieldErrors({ trocoPara: 'Informe o valor para troco.' })
+      return
+    }
+
+    const paymentInfo: OrderPaymentInfo = {
+      metodo:
+        formaPagamento === 'cartao'
+          ? tipoCartao === 'credito'
+            ? 'cartao_credito'
+            : 'cartao_debito'
+          : formaPagamento,
+      trocoPara:
+        formaPagamento === 'dinheiro'
+          ? precisaTroco
+            ? `Troco para ${trocoPara.trim()}`
+            : 'Não precisa de troco'
+          : undefined,
+      detalhe:
+        formaPagamento === 'cartao'
+          ? tipoCartao === 'credito'
+            ? 'Cartão de Crédito (levar maquininha)'
+            : 'Cartão de Débito (levar maquininha)'
+          : formaPagamento === 'pix'
+          ? 'Pix'
+          : undefined,
+    }
+
+    // 2. Valida dados obrigatórios do cliente conforme a modalidade
     const customerCheck = validateCustomerCheckoutData({
       clienteNome,
       clienteTelefone,
@@ -439,6 +488,7 @@ export function CartAndCheckoutDrawer({
       referencia,
       numeroMesa,
       observacoesCliente,
+      pagamento: paymentInfo,
     })
 
     if (!customerCheck.valid) {
@@ -447,7 +497,7 @@ export function CartAndCheckoutDrawer({
       return
     }
 
-    // 2. Valida e recalcula preços contra o catálogo oficial
+    // 3. Valida e recalcula preços contra o catálogo oficial
     if (!totalsCalculation.valid || totalsCalculation.items.length === 0) {
       setValidationErrors(
         totalsCalculation.errors.length > 0
@@ -461,7 +511,7 @@ export function CartAndCheckoutDrawer({
     try {
       const sanitized = customerCheck.sanitized!
 
-      // 3. Registra o pedido de forma idempotente em 'brasa_caipira_orders_v1' com status 'aguardando_confirmacao'
+      // 4. Registra o pedido de forma idempotente em 'brasa_caipira_orders_v1' com status 'aguardando_confirmacao'
       const { order } = createOrderIdempotent({
         clienteNome: sanitized.clienteNome,
         clienteTelefone: sanitized.clienteTelefone,
@@ -469,6 +519,7 @@ export function CartAndCheckoutDrawer({
         enderecoEntrega: sanitized.enderecoEntrega,
         numeroMesa: sanitized.numeroMesa,
         observacoesCliente: sanitized.observacoesCliente,
+        pagamento: paymentInfo,
         itens: totalsCalculation.items,
         subtotalCents: totalsCalculation.subtotalCents,
         taxaEntregaCents: totalsCalculation.taxaEntregaCents,
@@ -532,7 +583,7 @@ export function CartAndCheckoutDrawer({
                   </span>
                 </span>
                 <span className="text-[11px] text-stone-300">
-                  Escolha Delivery, Mesa ou Retirada
+                  Escolha Delivery ou Retirada
                 </span>
               </div>
             </div>
@@ -752,7 +803,7 @@ export function CartAndCheckoutDrawer({
                     <h3 className="text-xs font-extrabold uppercase tracking-wider text-stone-900 mb-2.5">
                       2. Modalidade de Atendimento *
                     </h3>
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-2 gap-2">
                       {activeModalities.includes('delivery') && (
                         <button
                           type="button"
@@ -767,24 +818,6 @@ export function CartAndCheckoutDrawer({
                           <span className="text-xs">Delivery</span>
                           <span className="text-[10px] text-stone-500">
                             +{formatCentsToBRL(deliveryFeeCents)}
-                          </span>
-                        </button>
-                      )}
-
-                      {activeModalities.includes('mesa') && (
-                        <button
-                          type="button"
-                          onClick={() => setModalidade('mesa')}
-                          className={`flex flex-col items-center justify-center gap-1 rounded-2xl border p-3 text-center transition ${
-                            modalidade === 'mesa'
-                              ? 'border-[#c21e1e] bg-red-50/80 text-[#c21e1e] font-extrabold ring-1 ring-[#c21e1e]'
-                              : 'border-stone-200 bg-white text-stone-700 hover:border-amber-400'
-                          }`}
-                        >
-                          <UtensilsCrossed className="h-5 w-5" />
-                          <span className="text-xs">Na Mesa</span>
-                          <span className="text-[10px] text-stone-500">
-                            Consumo local
                           </span>
                         </button>
                       )}
@@ -937,26 +970,6 @@ export function CartAndCheckoutDrawer({
                       </div>
                     )}
 
-                    {/* Campo específico para CONSUMO NA MESA */}
-                    {modalidade === 'mesa' && (
-                      <div className="pt-2 border-t border-stone-100">
-                        <label className="block text-[11px] font-bold text-stone-700 mb-1">
-                          Número ou Identificação da Mesa *
-                        </label>
-                        <input
-                          type="text"
-                          value={numeroMesa}
-                          onChange={(e) => setNumeroMesa(e.target.value)}
-                          placeholder="Ex: Mesa 04"
-                          className={`w-full rounded-xl border px-3 py-2 text-xs text-stone-900 focus:outline-hidden ${
-                            fieldErrors.numeroMesa
-                              ? 'border-[#c21e1e] bg-red-50/30'
-                              : 'border-stone-300 bg-[#fdfbf7] focus:border-[#c21e1e]'
-                          }`}
-                        />
-                      </div>
-                    )}
-
                     {/* Aviso informativo para RETIRADA NO BALCÃO */}
                     {modalidade === 'retirada' && (
                       <div className="rounded-xl bg-amber-50/80 p-3 text-[11px] text-stone-700 border border-amber-200/70">
@@ -982,17 +995,205 @@ export function CartAndCheckoutDrawer({
                         rows={2}
                         value={observacoesCliente}
                         onChange={(e) => setObservacoesCliente(e.target.value)}
-                        placeholder="Ex: Preciso de troco para R$ 100,00 / pagamento via PIX..."
+                        placeholder="Ex: Sem cebola no lanche, maionese à parte..."
                         className="w-full rounded-xl border border-stone-300 bg-[#fdfbf7] px-3 py-2 text-xs text-stone-900 focus:border-[#c21e1e] focus:outline-hidden"
                       />
                     </div>
                   </section>
 
-                  {/* 4. Resumo Completo para Revisão antes do Envio */}
+                  {/* 4. Forma de Pagamento */}
+                  <section className="rounded-2xl border border-stone-200 bg-white p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-xs font-extrabold uppercase tracking-wider text-stone-900">
+                        4. Forma de Pagamento *
+                      </h3>
+                      {fieldErrors.formaPagamento && (
+                        <span className="text-[10px] font-bold text-[#c21e1e]">
+                          {fieldErrors.formaPagamento}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2">
+                      {/* Dinheiro */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFormaPagamento('dinheiro')
+                          setFieldErrors((prev) => {
+                            const copy = { ...prev }
+                            delete copy.formaPagamento
+                            return copy
+                          })
+                        }}
+                        className={`flex flex-col items-center justify-center gap-1.5 rounded-2xl border p-3 text-center transition ${
+                          formaPagamento === 'dinheiro'
+                            ? 'border-[#15803d] bg-emerald-50/80 text-[#15803d] font-extrabold ring-1 ring-[#15803d]'
+                            : 'border-stone-200 bg-white text-stone-700 hover:border-amber-400'
+                        }`}
+                      >
+                        <Banknote className="h-5 w-5" />
+                        <span className="text-xs">Dinheiro</span>
+                      </button>
+
+                      {/* Pix */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFormaPagamento('pix')
+                          setFieldErrors((prev) => {
+                            const copy = { ...prev }
+                            delete copy.formaPagamento
+                            return copy
+                          })
+                        }}
+                        className={`flex flex-col items-center justify-center gap-1.5 rounded-2xl border p-3 text-center transition ${
+                          formaPagamento === 'pix'
+                            ? 'border-[#15803d] bg-emerald-50/80 text-[#15803d] font-extrabold ring-1 ring-[#15803d]'
+                            : 'border-stone-200 bg-white text-stone-700 hover:border-amber-400'
+                        }`}
+                      >
+                        <QrCode className="h-5 w-5" />
+                        <span className="text-xs">Pix</span>
+                      </button>
+
+                      {/* Cartão */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFormaPagamento('cartao')
+                          setFieldErrors((prev) => {
+                            const copy = { ...prev }
+                            delete copy.formaPagamento
+                            return copy
+                          })
+                        }}
+                        className={`flex flex-col items-center justify-center gap-1.5 rounded-2xl border p-3 text-center transition ${
+                          formaPagamento === 'cartao'
+                            ? 'border-[#15803d] bg-emerald-50/80 text-[#15803d] font-extrabold ring-1 ring-[#15803d]'
+                            : 'border-stone-200 bg-white text-stone-700 hover:border-amber-400'
+                        }`}
+                      >
+                        <CreditCard className="h-5 w-5" />
+                        <span className="text-xs">Cartão</span>
+                      </button>
+                    </div>
+
+                    {/* Detalhes para DINHEIRO (Troco) */}
+                    {formaPagamento === 'dinheiro' && (
+                      <div className="rounded-xl bg-amber-50/70 p-3 border border-amber-200/60 space-y-2">
+                        <span className="block text-[11px] font-bold text-stone-800">
+                          Precisa de troco?
+                        </span>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPrecisaTroco(false)
+                              setTrocoPara('')
+                              setFieldErrors((prev) => {
+                                const copy = { ...prev }
+                                delete copy.trocoPara
+                                return copy
+                              })
+                            }}
+                            className={`rounded-xl border py-2 text-xs font-bold transition ${
+                              !precisaTroco
+                                ? 'border-[#15803d] bg-[#15803d] text-white'
+                                : 'border-stone-300 bg-white text-stone-700'
+                            }`}
+                          >
+                            Não preciso de troco
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setPrecisaTroco(true)}
+                            className={`rounded-xl border py-2 text-xs font-bold transition ${
+                              precisaTroco
+                                ? 'border-[#15803d] bg-[#15803d] text-white'
+                                : 'border-stone-300 bg-white text-stone-700'
+                            }`}
+                          >
+                            Preciso de troco
+                          </button>
+                        </div>
+
+                        {precisaTroco && (
+                          <div className="pt-1.5">
+                            <label className="block text-[11px] font-bold text-stone-700 mb-1">
+                              Troco para quanto? *
+                            </label>
+                            <input
+                              type="text"
+                              value={trocoPara}
+                              onChange={(e) => setTrocoPara(e.target.value)}
+                              placeholder="Ex: R$ 50,00 ou R$ 100,00"
+                              className={`w-full rounded-xl border px-3 py-2 text-xs text-stone-900 focus:outline-hidden ${
+                                fieldErrors.trocoPara
+                                  ? 'border-[#c21e1e] bg-red-50/30'
+                                  : 'border-stone-300 bg-white focus:border-[#c21e1e]'
+                              }`}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Detalhes para PIX */}
+                    {formaPagamento === 'pix' && (
+                      <div className="rounded-xl bg-emerald-50/80 p-3 text-[11px] text-emerald-900 border border-emerald-200/70 space-y-1">
+                        <p className="font-bold flex items-center gap-1.5">
+                          <QrCode className="h-4 w-4 text-emerald-700" />
+                          Pagamento via Chave Pix
+                        </p>
+                        <p className="text-emerald-800 text-[11px]">
+                          A chave Pix será informada na confirmação do pedido pelo WhatsApp, ou você pode pagar na entrega/retirada.
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Detalhes para CARTÃO (Débito ou Crédito) */}
+                    {formaPagamento === 'cartao' && (
+                      <div className="rounded-xl bg-amber-50/70 p-3 border border-amber-200/60 space-y-2">
+                        <span className="block text-[11px] font-bold text-stone-800">
+                          Escolha o tipo de cartão:
+                        </span>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setTipoCartao('debito')}
+                            className={`rounded-xl border py-2 text-xs font-bold transition ${
+                              tipoCartao === 'debito'
+                                ? 'border-[#15803d] bg-[#15803d] text-white'
+                                : 'border-stone-300 bg-white text-stone-700'
+                            }`}
+                          >
+                            Cartão de Débito
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setTipoCartao('credito')}
+                            className={`rounded-xl border py-2 text-xs font-bold transition ${
+                              tipoCartao === 'credito'
+                                ? 'border-[#15803d] bg-[#15803d] text-white'
+                                : 'border-stone-300 bg-white text-stone-700'
+                            }`}
+                          >
+                            Cartão de Crédito
+                          </button>
+                        </div>
+                        <p className="text-[10px] text-stone-500 pt-0.5">
+                          💳 O entregador levará a máquina de cartão até você!
+                        </p>
+                      </div>
+                    )}
+                  </section>
+
+                  {/* 5. Resumo Completo para Revisão antes do Envio */}
                   <section className="rounded-2xl border-2 border-amber-300/80 bg-amber-50/60 p-4 space-y-2 text-xs">
                     <div className="flex items-center gap-1.5 font-extrabold text-stone-900 uppercase tracking-wider text-[11px]">
                       <ShieldCheck className="h-4 w-4 text-[#15803d]" />
-                      <span>4. Resumo Financeiro Oficial</span>
+                      <span>5. Resumo Financeiro Oficial</span>
                     </div>
 
                     <div className="space-y-1 pt-1 text-stone-700">
@@ -1011,6 +1212,23 @@ export function CartAndCheckoutDrawer({
                           {modalidade === 'delivery'
                             ? formatCentsToBRL(totalsCalculation.taxaEntregaCents)
                             : 'Grátis / Isento'}
+                        </span>
+                      </div>
+
+                      <div className="flex justify-between">
+                        <span>Forma de Pagamento:</span>
+                        <span className="font-bold text-stone-900">
+                          {formaPagamento === 'cartao'
+                            ? tipoCartao === 'credito'
+                              ? 'Cartão (Crédito)'
+                              : 'Cartão (Débito)'
+                            : formaPagamento === 'pix'
+                            ? 'PIX'
+                            : formaPagamento === 'dinheiro'
+                            ? precisaTroco && trocoPara.trim()
+                              ? `Dinheiro (Troco p/ ${trocoPara.trim()})`
+                              : 'Dinheiro'
+                            : 'Selecione acima'}
                         </span>
                       </div>
 

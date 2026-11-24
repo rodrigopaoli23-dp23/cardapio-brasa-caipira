@@ -135,6 +135,14 @@ export interface HeroBannerConfig {
 
 export type OrderModality = 'delivery' | 'mesa' | 'retirada'
 
+export type PaymentMethod = 'dinheiro' | 'pix' | 'cartao_debito' | 'cartao_credito'
+
+export interface OrderPaymentInfo {
+  metodo: PaymentMethod
+  trocoPara?: string // Se for dinheiro, ex: "R$ 50,00" ou "Sem troco"
+  detalhe?: string
+}
+
 export type OrderLifecycleStatus =
   | 'checkout_iniciado'
   | 'aguardando_confirmacao'
@@ -181,8 +189,10 @@ export interface OrderRecord {
   taxaEntregaCents: number
   totalCents: number
   observacoesCliente?: string
+  pagamento?: OrderPaymentInfo
   status: OrderLifecycleStatus
   whatsappOpenedAt?: string
 }
 
 export { type InitialProduct, type ProductClassification }
+
